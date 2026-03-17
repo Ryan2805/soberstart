@@ -51,7 +51,7 @@ export default function JournalDetailScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scroll>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <Pressable onPress={() => router.back()} style={{ padding: 10 }}>
           <Ionicons name="chevron-back" size={22} color={theme.colors.text} />

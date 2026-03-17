@@ -1,8 +1,8 @@
 import { useApp } from "@/store/store";
 import { theme } from "@/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Redirect, router } from "expo-router";
-import { useState } from "react";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,11 +17,19 @@ import {
 
 export default function LoginScreen() {
   const { state, actions } = useApp();
+  const params = useLocalSearchParams<{ mode?: string; upgrade?: string; ready?: string }>();
+  const upgradeMode = params.upgrade === "1";
+  const readyToRegister = params.ready === "1";
+  const initialMode = params.mode === "register" ? "register" : "login";
 
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("ryan@test.com");
+  const [mode, setMode] = useState<"login" | "register">(initialMode);
+  const [email, setEmail] = useState(state.profile.email === "anonymous@local" ? "" : state.profile.email);
   const [password, setPassword] = useState("Password123");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
 
   async function onSubmit() {
     const cleanEmail = email.trim();
@@ -44,6 +52,10 @@ export default function LoginScreen() {
       setLoading(true);
       if (mode === "login") {
         await actions.login(cleanEmail, password);
+      } else if (!upgradeMode && !readyToRegister) {
+        await actions.restartOnboarding();
+        router.replace({ pathname: "/onboarding", params: { mode: "register" } });
+        return;
       } else {
         await actions.register(cleanEmail, password);
       }
@@ -62,7 +74,7 @@ export default function LoginScreen() {
   if (!state.onboardingDone && !state.authUser && !state.isAnonymous) {
     return <Redirect href={"/onboarding" as any} />;
   }
-  if (state.authUser || state.isAnonymous) return <Redirect href="/(tabs)" />;
+  if (state.authUser || (state.isAnonymous && !upgradeMode)) return <Redirect href="/(tabs)" />;
 
   return (
     <KeyboardAvoidingView
@@ -85,7 +97,7 @@ export default function LoginScreen() {
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontSize: 30, fontWeight: "900", color: "white" }}>
-              {mode === "login" ? "Welcome back" : "Create account"}
+              {mode === "login" ? "Welcome back" : readyToRegister || upgradeMode ? "Create account" : "Start setup"}
             </Text>
             <View
               style={{
@@ -101,9 +113,13 @@ export default function LoginScreen() {
             </View>
           </View>
           <Text style={{ color: "rgba(255,255,255,0.9)", fontWeight: "700" }}>
-            {mode === "login"
-              ? "Log in to continue your streak and journal."
-              : "Sign up and start tracking your recovery journey."}
+            {upgradeMode
+              ? "Create an account to leave anonymous mode and keep moving with a signed-in profile."
+              : mode === "login"
+              ? `Log in to continue${state.profile.name ? `, ${state.profile.name}` : ""}.`
+              : readyToRegister
+              ? "Create your account to save the setup you just created."
+              : "We will take you through onboarding before account creation."}
           </Text>
         </View>
 
@@ -184,7 +200,7 @@ export default function LoginScreen() {
               </View>
             ) : (
               <Text style={{ fontWeight: "900", fontSize: 16, color: "white" }}>
-                {mode === "login" ? "Login" : "Create account"}
+                {mode === "login" ? "Login" : readyToRegister || upgradeMode ? "Create account" : "Continue to onboarding"}
               </Text>
             )}
           </Pressable>
@@ -207,22 +223,24 @@ export default function LoginScreen() {
             </Text>
           </Pressable>
 
-          <Pressable
-            onPress={async () => {
-              await actions.enterAnonymousMode();
-              router.replace("/(tabs)");
-            }}
-            disabled={loading}
-            style={{
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ fontWeight: "800", color: theme.colors.muted }}>
-              Continue in anonymous mode
-            </Text>
-          </Pressable>
+          {!upgradeMode && (
+            <Pressable
+              onPress={async () => {
+                await actions.enterAnonymousMode();
+                router.replace("/(tabs)");
+              }}
+              disabled={loading}
+              style={{
+                paddingVertical: 10,
+                borderRadius: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ fontWeight: "800", color: theme.colors.muted }}>
+                Continue in anonymous mode
+              </Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

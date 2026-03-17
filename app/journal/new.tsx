@@ -36,7 +36,7 @@ export default function NewJournalScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scroll keyboard>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <Pressable onPress={() => router.back()} style={{ padding: 10 }}>
           <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
@@ -64,6 +64,8 @@ export default function NewJournalScreen() {
           onChangeText={setTitle}
           placeholder="What happened today?"
           placeholderTextColor={theme.colors.muted}
+          returnKeyType="done"
+          blurOnSubmit
           style={{
             borderWidth: 1,
             borderColor: theme.colors.border,
@@ -85,6 +87,7 @@ export default function NewJournalScreen() {
           placeholder="Describe your triggers, cravings, wins, and plan."
           placeholderTextColor={theme.colors.muted}
           multiline
+          scrollEnabled={false}
           style={{
             borderWidth: 1,
             borderColor: theme.colors.border,

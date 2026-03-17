@@ -50,6 +50,10 @@ export type Profile = {
   email: string;
   reminders: boolean;
   darkMode: boolean;
+  soberStartDate: string;
+  soberFrom: string[];
+  goals: string[];
+  motivation: string;
 };
 
 export type AuthUser = { id: string; email: string } | null;
@@ -70,6 +74,7 @@ type State = {
 
 type Actions = {
   hydrateAuth: () => Promise<void>;
+  restartOnboarding: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
@@ -132,7 +137,12 @@ const STORAGE_KEYS = {
   anonymousCheckIns: "soberstart:anonymous_checkins",
   anonymousToolUses: "soberstart:anonymous_tool_uses",
   anonymousUrges: "soberstart:anonymous_urge_logs",
+  profile: "soberstart:profile",
 };
+
+function persistProfile(profile: Profile) {
+  return AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profile));
+}
 
 function computeRisk(checkIns: CheckIn[]): RiskLevel {
   const recent = checkIns.slice(0, 3);
@@ -322,10 +332,14 @@ const initialState: State = {
   toolUses: [],
   urgeLogs: [],
   profile: {
-    name: "Ryan Daly",
-    email: "ryan@example.com",
+    name: "",
+    email: "",
     reminders: true,
     darkMode: false,
+    soberStartDate: "",
+    soberFrom: [],
+    goals: [],
+    motivation: "",
   },
 };
 
@@ -336,7 +350,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => ({
       hydrateAuth: async () => {
         try {
-          const [[, onboarding], [, anonymous], [, anonymousJournalRaw], [, anonymousCheckInsRaw], [, anonymousToolUsesRaw], [, anonymousUrgesRaw]] =
+          const [[, onboarding], [, anonymous], [, anonymousJournalRaw], [, anonymousCheckInsRaw], [, anonymousToolUsesRaw], [, anonymousUrgesRaw], [, profileRaw]] =
             await AsyncStorage.multiGet([
               STORAGE_KEYS.onboarding,
               STORAGE_KEYS.anonymous,
@@ -344,16 +358,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               STORAGE_KEYS.anonymousCheckIns,
               STORAGE_KEYS.anonymousToolUses,
               STORAGE_KEYS.anonymousUrges,
+              STORAGE_KEYS.profile,
             ]);
 
           const onboardingDone = onboarding === "1";
           const isAnonymous = anonymous === "1";
+          const savedProfile = profileRaw ? ({ ...initialState.profile, ...JSON.parse(profileRaw) } as Profile) : initialState.profile;
 
           if (isAnonymous) {
             const journal = anonymousJournalRaw ? JSON.parse(anonymousJournalRaw) : [];
             const checkIns = anonymousCheckInsRaw ? JSON.parse(anonymousCheckInsRaw) : [];
             const toolUses = anonymousToolUsesRaw ? JSON.parse(anonymousToolUsesRaw) : [];
             const urgeLogs = anonymousUrgesRaw ? JSON.parse(anonymousUrgesRaw) : [];
+            const nextProfile = {
+              ...savedProfile,
+              email: savedProfile.email || "anonymous@local",
+            };
 
             setState((prev) =>
               applyRecoveryState(
@@ -364,7 +384,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   onboardingDone: true,
                   isAnonymous: true,
                   journal,
-                  profile: { ...prev.profile, name: "Anonymous", email: "anonymous@local" },
+                  profile: nextProfile,
                 },
                 { checkIns, toolUses, urgeLogs }
               )
@@ -386,6 +406,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               urgeLogs: [],
               streakDays: 0,
               riskLevel: "Low",
+              profile: savedProfile,
             }));
             return;
           }
@@ -394,10 +415,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             api<{ user: { id: string; email: string } }>("/me", { auth: true }),
             loadRemoteData(),
           ]);
+          const nextProfile = { ...savedProfile, email: me.user.email || savedProfile.email };
 
           if (!onboardingDone) {
             await AsyncStorage.setItem(STORAGE_KEYS.onboarding, "1");
           }
+          await persistProfile(nextProfile);
 
           setState((prev) =>
             applyRecoveryState(
@@ -408,7 +431,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 onboardingDone: true,
                 isAnonymous: false,
                 journal: data.journal,
-                profile: { ...prev.profile, email: me.user.email },
+                profile: nextProfile,
               },
               {
                 checkIns: data.checkIns,
@@ -429,8 +452,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: [],
             streakDays: 0,
             riskLevel: "Low",
+            profile: initialState.profile,
           }));
         }
+      },
+
+      restartOnboarding: async () => {
+        await AsyncStorage.setItem(STORAGE_KEYS.onboarding, "0");
+        setState((prev) => ({
+          ...prev,
+          onboardingDone: false,
+          isAnonymous: false,
+          authUser: null,
+        }));
       },
 
       completeOnboarding: async () => {
@@ -458,21 +492,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const data = await loadRemoteData();
         setState((prev) =>
-          applyRecoveryState(
-            {
-              ...prev,
-              authUser: res.user,
-              onboardingDone: true,
-              isAnonymous: false,
-              journal: data.journal,
-              profile: { ...prev.profile, email: res.user.email },
-            },
-            {
-              checkIns: data.checkIns,
-              toolUses: data.toolUses,
-              urgeLogs: data.urgeLogs,
-            }
-          )
+          {
+            const nextProfile = { ...prev.profile, email: res.user.email || prev.profile.email };
+            void persistProfile(nextProfile);
+            return applyRecoveryState(
+              {
+                ...prev,
+                authUser: res.user,
+                onboardingDone: true,
+                isAnonymous: false,
+                journal: data.journal,
+                profile: nextProfile,
+              },
+              {
+                checkIns: data.checkIns,
+                toolUses: data.toolUses,
+                urgeLogs: data.urgeLogs,
+              }
+            );
+          }
         );
       },
 
@@ -496,21 +534,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const data = await loadRemoteData();
         setState((prev) =>
-          applyRecoveryState(
-            {
-              ...prev,
-              authUser: res.user,
-              onboardingDone: true,
-              isAnonymous: false,
-              journal: data.journal,
-              profile: { ...prev.profile, email: res.user.email },
-            },
-            {
-              checkIns: data.checkIns,
-              toolUses: data.toolUses,
-              urgeLogs: data.urgeLogs,
-            }
-          )
+          {
+            const nextProfile = { ...prev.profile, email: res.user.email || prev.profile.email };
+            void persistProfile(nextProfile);
+            return applyRecoveryState(
+              {
+                ...prev,
+                authUser: res.user,
+                onboardingDone: true,
+                isAnonymous: false,
+                journal: data.journal,
+                profile: nextProfile,
+              },
+              {
+                checkIns: data.checkIns,
+                toolUses: data.toolUses,
+                urgeLogs: data.urgeLogs,
+              }
+            );
+          }
         );
       },
 
@@ -521,17 +563,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           [STORAGE_KEYS.anonymous, "1"],
         ]);
 
-        setState((prev) => ({
-          ...prev,
-          authUser: null,
-          onboardingDone: true,
-          isAnonymous: true,
-          profile: { ...prev.profile, name: "Anonymous", email: "anonymous@local" },
-        }));
+        setState((prev) => {
+          const nextProfile = {
+            ...prev.profile,
+            email: prev.profile.email || "anonymous@local",
+          };
+          void persistProfile(nextProfile);
+          return {
+            ...prev,
+            authUser: null,
+            onboardingDone: true,
+            isAnonymous: true,
+            profile: nextProfile,
+          };
+        });
       },
 
       exitAnonymousMode: async () => {
-        await AsyncStorage.setItem(STORAGE_KEYS.anonymous, "0");
+        await AsyncStorage.multiSet([
+          [STORAGE_KEYS.anonymous, "0"],
+          [STORAGE_KEYS.onboarding, "0"],
+        ]);
         await AsyncStorage.multiRemove([
           STORAGE_KEYS.anonymousJournal,
           STORAGE_KEYS.anonymousCheckIns,
@@ -540,6 +592,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
         setState((prev) => ({
           ...prev,
+          authUser: null,
+          onboardingDone: false,
           isAnonymous: false,
           journal: [],
           checkIns: [],
@@ -745,7 +799,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       setProfile: (patch) => {
-        setState((prev) => ({ ...prev, profile: { ...prev.profile, ...patch } }));
+        setState((prev) => {
+          const nextProfile = { ...prev.profile, ...patch };
+          void persistProfile(nextProfile);
+          return { ...prev, profile: nextProfile };
+        });
       },
 
       resetDemo: async () => {

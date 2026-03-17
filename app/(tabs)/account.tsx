@@ -8,7 +8,7 @@ import { router } from "expo-router";
 
 export default function AccountScreen() {
   const { state, actions } = useApp();
-  const displayName = state.authUser?.email?.split("@")[0] ?? state.profile.name;
+  const displayName = state.profile.name || state.authUser?.email?.split("@")[0] || "Your account";
   const displayEmail = state.authUser?.email ?? state.profile.email;
 
   const reset = () => {
@@ -19,7 +19,7 @@ export default function AccountScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scroll>
       <Text style={{ fontSize: 26, fontWeight: "900", color: theme.colors.text, marginBottom: 14 }}>
         Account
       </Text>
@@ -52,6 +52,29 @@ export default function AccountScreen() {
             )}
           </View>
         </View>
+      </Card>
+
+      <Card style={{ marginBottom: 12 }}>
+        <Text style={{ fontWeight: "900", color: theme.colors.text, fontSize: 16 }}>Recovery setup</Text>
+        <Text style={{ color: theme.colors.muted, marginTop: 4 }}>
+          {state.profile.soberStartDate ? `Sober since ${state.profile.soberStartDate}` : "No sober start date added yet."}
+        </Text>
+
+        {state.profile.soberFrom.length > 0 && (
+          <Text style={{ color: theme.colors.text, marginTop: 10, fontWeight: "800" }}>
+            From: {state.profile.soberFrom.join(", ")}
+          </Text>
+        )}
+
+        {state.profile.goals.length > 0 && (
+          <Text style={{ color: theme.colors.text, marginTop: 8, fontWeight: "800" }}>
+            Goals: {state.profile.goals.join(" | ")}
+          </Text>
+        )}
+
+        {!!state.profile.motivation && (
+          <Text style={{ color: theme.colors.muted, marginTop: 10, lineHeight: 20 }}>{state.profile.motivation}</Text>
+        )}
       </Card>
 
       <Card style={{ marginBottom: 12 }}>
@@ -108,7 +131,7 @@ export default function AccountScreen() {
               title="Create account"
               subtitle="Upgrade from anonymous mode"
               right={
-                <Pressable onPress={() => router.push("/login")}>
+                <Pressable onPress={() => router.push({ pathname: "/login", params: { mode: "register", upgrade: "1" } })}>
                   <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Open</Text>
                 </Pressable>
               }

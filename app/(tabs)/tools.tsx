@@ -4,7 +4,9 @@ import { useApp } from "@/store/store";
 import { theme } from "@/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+
+const numericKeyboardType = Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric";
 
 const quickTools = [
   { name: "Drink water", icon: "water-outline" as const },
@@ -107,8 +109,13 @@ export default function ToolsScreen() {
   };
 
   return (
-    <Screen>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+    <Screen keyboard>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        contentContainerStyle={{ paddingBottom: 32 }}
+      >
         <Text style={{ fontSize: 26, fontWeight: "900", color: theme.colors.text }}>Tools</Text>
         <Text style={{ color: theme.colors.muted, marginTop: 4, marginBottom: 14 }}>
           Short interventions, saved activity, and urge tracking in one place.
@@ -217,7 +224,7 @@ export default function ToolsScreen() {
           </Text>
 
           <View style={{ flexDirection: "row", gap: 10 }}>
-            <Field label="Intensity (0-10)" value={intensity} onChangeText={setIntensity} keyboardType="numeric" />
+            <Field label="Intensity (0-10)" value={intensity} onChangeText={setIntensity} keyboardType={numericKeyboardType} />
             <Field label="Tool used" value={toolUsed} onChangeText={setToolUsed} placeholder="Optional" />
           </View>
 
@@ -307,7 +314,7 @@ function Field({
   onChangeText: (value: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: "default" | "numeric";
+  keyboardType?: "default" | "numeric" | "numbers-and-punctuation";
 }) {
   return (
     <View style={{ flex: 1 }}>
@@ -319,6 +326,9 @@ function Field({
         placeholderTextColor={theme.colors.muted}
         keyboardType={keyboardType}
         multiline={multiline}
+        returnKeyType={multiline ? "default" : "done"}
+        blurOnSubmit={!multiline}
+        scrollEnabled={!multiline ? undefined : false}
         style={{
           borderWidth: 1,
           borderColor: theme.colors.border,

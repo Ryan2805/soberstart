@@ -73,7 +73,7 @@ export default function EditJournalScreen() {
   };
 
   return (
-    <Screen>
+    <Screen scroll keyboard>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <Pressable onPress={() => router.back()} style={{ padding: 10 }}>
           <Ionicons name="chevron-back" size={22} color={theme.colors.text} />
@@ -101,6 +101,8 @@ export default function EditJournalScreen() {
           onChangeText={setTitle}
           placeholder="Title"
           placeholderTextColor={theme.colors.muted}
+          returnKeyType="done"
+          blurOnSubmit
           style={{
             borderWidth: 1,
             borderColor: theme.colors.border,
@@ -122,6 +124,7 @@ export default function EditJournalScreen() {
           placeholder="Content"
           placeholderTextColor={theme.colors.muted}
           multiline
+          scrollEnabled={false}
           style={{
             borderWidth: 1,
             borderColor: theme.colors.border,

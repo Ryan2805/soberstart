@@ -9,6 +9,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+function daysSinceStart(value: string) {
+  if (!value) return null;
+  const start = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(start.getTime())) return null;
+  const today = new Date(`${todayISO()}T00:00:00.000Z`);
+  return Math.max(Math.floor((today.getTime() - start.getTime()) / 86400000), 0);
+}
+
 function QuickAction({
   title,
   subtitle,
@@ -66,6 +74,10 @@ export default function HomeScreen() {
 
   const lastCheckIn = state.checkIns[0];
   const hasCheckedInToday = lastCheckIn?.date === todayISO();
+  const soberDays = daysSinceStart(state.profile.soberStartDate);
+  const headlineCount = soberDays ?? state.streakDays;
+  const headlineLabel = soberDays !== null ? "Sober days" : "Current streak";
+  const headlineSubtext = soberDays !== null ? `Since ${state.profile.soberStartDate}` : "Based on daily check-ins";
 
   const riskColor =
     state.riskLevel === "Low"
@@ -125,7 +137,7 @@ export default function HomeScreen() {
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800" }}>Current streak</Text>
+              <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800" }}>{headlineLabel}</Text>
 
               <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, marginTop: 8 }}>
                 <Text
@@ -136,10 +148,12 @@ export default function HomeScreen() {
                     lineHeight: 56,
                   }}
                 >
-                  {state.streakDays}
+                  {headlineCount}
                 </Text>
                 <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800", marginBottom: 10 }}>days</Text>
               </View>
+
+              <Text style={{ color: "rgba(255,255,255,0.8)", marginTop: 4, fontWeight: "700" }}>{headlineSubtext}</Text>
 
               <View style={{ marginTop: 12, flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
                 <Pill label={`Risk: ${state.riskLevel}`} icon="warning-outline" tint={riskColor} soft />
@@ -185,6 +199,50 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
         </View>
+
+        <Card style={{ marginBottom: 14 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.colors.muted, fontWeight: "800" }}>Recovery profile</Text>
+              <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: "900", marginTop: 4 }}>
+                {state.profile.name ? `${state.profile.name}'s focus` : "Your focus"}
+              </Text>
+              <Text style={{ color: theme.colors.muted, marginTop: 6, lineHeight: 20 }}>
+                {state.profile.soberFrom.length > 0
+                  ? `Sober from ${state.profile.soberFrom.join(", ")}`
+                  : "Add your sober focus in onboarding or account setup."}
+              </Text>
+            </View>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 16,
+                backgroundColor: theme.colors.primarySoft,
+                borderWidth: 1,
+                borderColor: theme.colors.border,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="compass-outline" size={20} color={theme.colors.primary} />
+            </View>
+          </View>
+
+          {state.profile.goals.length > 0 && (
+            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              {state.profile.goals.map((goal) => (
+                <Pill key={goal} label={goal} tint={theme.colors.primary} soft />
+              ))}
+            </View>
+          )}
+
+          {!!state.profile.motivation && (
+            <Text style={{ color: theme.colors.text, marginTop: 12, lineHeight: 21 }}>
+              {`"${state.profile.motivation}"`}
+            </Text>
+          )}
+        </Card>
 
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 14 }}>
           <QuickAction title="Journal" subtitle="Write or review entries" icon="book-outline" onPress={() => router.push("/journal")} />

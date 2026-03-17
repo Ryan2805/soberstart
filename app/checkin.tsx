@@ -6,7 +6,9 @@ import { todayISO } from "@/utils/date";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, Text, TextInput, View } from "react-native";
+
+const numericKeyboardType = Platform.OS === "ios" ? "numbers-and-punctuation" : "numeric";
 
 export default function CheckInModal() {
   const { state, actions } = useApp();
@@ -41,7 +43,7 @@ export default function CheckInModal() {
   };
 
   return (
-    <Screen>
+    <Screen scroll keyboard>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <Pressable onPress={() => router.back()} style={{ padding: 10 }}>
           <Ionicons name="close" size={22} color={theme.colors.text} />
@@ -87,6 +89,7 @@ export default function CheckInModal() {
           placeholder="What's going on today?"
           placeholderTextColor={theme.colors.muted}
           multiline
+          scrollEnabled={false}
           style={{
             borderWidth: 1,
             borderColor: theme.colors.border,
@@ -127,9 +130,11 @@ function Mini({
       <TextInput
         value={value}
         onChangeText={setValue}
-        keyboardType="numeric"
+        keyboardType={numericKeyboardType}
         placeholder="0"
         placeholderTextColor={theme.colors.muted}
+        returnKeyType="done"
+        blurOnSubmit
         style={{
           borderWidth: 1,
           borderColor: theme.colors.border,
