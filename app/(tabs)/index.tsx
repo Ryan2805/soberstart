@@ -1,6 +1,7 @@
 import { Card } from "@/components/Card";
 import { Pill } from "@/components/Pill";
 import { Screen } from "@/components/Screen";
+import { SobrietyTimer } from "@/components/SobrietyTimer";
 import { StatCard } from "@/components/StatCard";
 import { useApp } from "@/store/store";
 import { theme } from "@/theme";
@@ -8,14 +9,6 @@ import { formatShortDate, todayISO } from "@/utils/date";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { Pressable, ScrollView, Text, View } from "react-native";
-
-function daysSinceStart(value: string) {
-  if (!value) return null;
-  const start = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(start.getTime())) return null;
-  const today = new Date(`${todayISO()}T00:00:00.000Z`);
-  return Math.max(Math.floor((today.getTime() - start.getTime()) / 86400000), 0);
-}
 
 function QuickAction({
   title,
@@ -74,10 +67,9 @@ export default function HomeScreen() {
 
   const lastCheckIn = state.checkIns[0];
   const hasCheckedInToday = lastCheckIn?.date === todayISO();
-  const soberDays = daysSinceStart(state.profile.soberStartDate);
-  const headlineCount = soberDays ?? state.streakDays;
-  const headlineLabel = soberDays !== null ? "Sober days" : "Current streak";
-  const headlineSubtext = soberDays !== null ? `Since ${state.profile.soberStartDate}` : "Based on daily check-ins";
+  const hasSoberDate = !!state.profile.soberStartDate;
+  const headlineLabel = hasSoberDate ? "Sobriety timer" : "Current streak";
+  const headlineSubtext = hasSoberDate ? `Started ${state.profile.soberStartDate}` : "Based on daily check-ins";
 
   const riskColor =
     state.riskLevel === "Low"
@@ -139,21 +131,25 @@ export default function HomeScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800" }}>{headlineLabel}</Text>
 
-              <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, marginTop: 8 }}>
-                <Text
-                  style={{
-                    fontSize: 54,
-                    fontWeight: "900",
-                    color: "white",
-                    lineHeight: 56,
-                  }}
-                >
-                  {headlineCount}
-                </Text>
-                <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800", marginBottom: 10 }}>days</Text>
-              </View>
-
               <Text style={{ color: "rgba(255,255,255,0.8)", marginTop: 4, fontWeight: "700" }}>{headlineSubtext}</Text>
+
+              {hasSoberDate ? (
+                <SobrietyTimer startDate={state.profile.soberStartDate} />
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, marginTop: 8 }}>
+                  <Text
+                    style={{
+                      fontSize: 54,
+                      fontWeight: "900",
+                      color: "white",
+                      lineHeight: 56,
+                    }}
+                  >
+                    {state.streakDays}
+                  </Text>
+                  <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800", marginBottom: 10 }}>days</Text>
+                </View>
+              )}
 
               <View style={{ marginTop: 12, flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
                 <Pill label={`Risk: ${state.riskLevel}`} icon="warning-outline" tint={riskColor} soft />
