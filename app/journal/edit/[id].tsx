@@ -1,18 +1,19 @@
+import { Card } from "@/components/Card";
+import { Screen } from "@/components/Screen";
+import { useApp } from "@/store/store";
+import { theme } from "@/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
-import { Card } from "@/components/Card";
-import { Screen } from "@/components/Screen";
-import { theme } from "@/theme";
-import { useApp } from "@/store/store";
 
 const quickTags = ["craving", "trigger", "win", "gratitude", "plan"];
 
 export default function EditJournalScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const { state, actions } = useApp();
-  const entry = state.journal.find((j) => j.id === id);
+  const entryId = Array.isArray(id) ? id[0] : id;
+  const entry = state.journal.find((j) => j.id === entryId);
 
   const [title, setTitle] = useState(entry?.title ?? "");
   const [content, setContent] = useState(entry?.content ?? "");
@@ -48,13 +49,12 @@ export default function EditJournalScreen() {
     try {
       setSaving(true);
 
-      // Backend doesn't store tags yet — keep them by appending to content.
+      
       const tagLine = tags.length ? `Tags: ${tags.join(", ")}` : null;
 
-      // If content already has a Tags line from earlier, strip it before re-adding.
       const stripped = content
-        .replace(/\n---\nTags:.*$/s, "") // remove old block if present
-        .replace(/\nTags:.*$/s, "");     // fallback remove if it was simple
+        .replace(/\n---\nTags:.*$/s, "") 
+        .replace(/\nTags:.*$/s, "");     
 
       const finalContent =
         tagLine ? `${stripped.trim()}\n\n---\n${tagLine}` : stripped.trim();
@@ -64,7 +64,7 @@ export default function EditJournalScreen() {
         content: finalContent,
       });
 
-      router.replace({ pathname: "//journal/[id]", params: { id: entry.id } });
+      router.replace({ pathname: "/journal/[id]", params: { id: entry.id } });
     } catch (e: any) {
       Alert.alert("Save failed", e.message);
     } finally {

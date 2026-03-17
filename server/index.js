@@ -25,6 +25,9 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("Missing JWT_SECRET in environment");
+}
 
 // ---------- Helpers ----------
 function signToken(user) {
@@ -64,6 +67,31 @@ const journalCreateSchema = z.object({
   entryDate: z.string().datetime().optional()
 });
 
+const checkInSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  mood: z.number().int().min(0).max(10),
+  craving: z.number().int().min(0).max(10),
+  stress: z.number().int().min(0).max(10),
+  note: z.string().trim().max(1000).optional().or(z.literal(""))
+});
+
+const toolUseSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  notes: z.string().trim().max(500).optional().or(z.literal(""))
+});
+
+const urgeLogSchema = z.object({
+  intensity: z.number().int().min(0).max(10),
+  trigger: z.string().trim().min(1).max(140),
+  notes: z.string().trim().max(1000).optional().or(z.literal("")),
+  toolUsed: z.string().trim().max(120).optional().or(z.literal("")),
+  occurredAt: z.string().datetime().optional()
+});
+
+function startOfDayUtc(dateString) {
+  return new Date(`${dateString}T00:00:00.000Z`);
+}
+
 //Routes
 app.get("/health", (_, res) => res.json({ ok: true }));
 app.get("/me", authMiddleware, (req, res) => {
@@ -74,7 +102,8 @@ app.post("/auth/register", async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const { email, password } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
+  const { password } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) return res.status(409).json({ error: "Email already in use" });
@@ -95,7 +124,8 @@ app.post("/auth/login", async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const { email, password } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
+  const { password } = parsed.data;
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
@@ -170,11 +200,107 @@ app.put("/journal/:id", authMiddleware, async (req, res) => {
 app.delete("/journal/:id", authMiddleware, async (req, res) => {
   const id = req.params.id;
 
-  const existing = await prisma.journalEntry.findFirst({ where: { id, userId: req.user.id } });
-  if (!existing) return res.status(404).json({ error: "Not found" });
+  const result = await prisma.journalEntry.deleteMany({
+    where: { id, userId: req.user.id },
+  });
+  if (result.count === 0) return res.status(404).json({ error: "Not found" });
 
-  await prisma.journalEntry.delete({ where: { id } });
   res.status(204).send();
+});
+
+app.get("/check-ins", authMiddleware, async (req, res) => {
+  const items = await prisma.checkIn.findMany({
+    where: { userId: req.user.id },
+    orderBy: { date: "desc" }
+  });
+
+  res.json(items);
+});
+
+app.post("/check-ins", authMiddleware, async (req, res) => {
+  const parsed = checkInSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const { date, mood, craving, stress, note } = parsed.data;
+  const day = startOfDayUtc(date);
+
+  const saved = await prisma.checkIn.upsert({
+    where: {
+      userId_date: {
+        userId: req.user.id,
+        date: day
+      }
+    },
+    update: {
+      mood,
+      craving,
+      stress,
+      note: note || null
+    },
+    create: {
+      userId: req.user.id,
+      date: day,
+      mood,
+      craving,
+      stress,
+      note: note || null
+    }
+  });
+
+  res.status(201).json(saved);
+});
+
+app.get("/tool-uses", authMiddleware, async (req, res) => {
+  const items = await prisma.toolUse.findMany({
+    where: { userId: req.user.id },
+    orderBy: { createdAt: "desc" },
+    take: 50
+  });
+
+  res.json(items);
+});
+
+app.post("/tool-uses", authMiddleware, async (req, res) => {
+  const parsed = toolUseSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const saved = await prisma.toolUse.create({
+    data: {
+      userId: req.user.id,
+      name: parsed.data.name,
+      notes: parsed.data.notes || null
+    }
+  });
+
+  res.status(201).json(saved);
+});
+
+app.get("/urge-logs", authMiddleware, async (req, res) => {
+  const items = await prisma.urgeLog.findMany({
+    where: { userId: req.user.id },
+    orderBy: { occurredAt: "desc" },
+    take: 50
+  });
+
+  res.json(items);
+});
+
+app.post("/urge-logs", authMiddleware, async (req, res) => {
+  const parsed = urgeLogSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+
+  const saved = await prisma.urgeLog.create({
+    data: {
+      userId: req.user.id,
+      intensity: parsed.data.intensity,
+      trigger: parsed.data.trigger,
+      notes: parsed.data.notes || null,
+      toolUsed: parsed.data.toolUsed || null,
+      occurredAt: parsed.data.occurredAt ? new Date(parsed.data.occurredAt) : new Date()
+    }
+  });
+
+  res.status(201).json(saved);
 });
 
 app.listen(PORT, "0.0.0.0", () => {

@@ -1,8 +1,9 @@
 // app/(tabs)/_layout.tsx
 import { useApp } from "@/store/store";
+import { theme } from "@/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Tabs, router } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { Redirect, Tabs, router } from "expo-router";
+import { useMemo } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 
 function getInitials(nameOrEmail?: string) {
@@ -47,9 +48,9 @@ function ProfileButton() {
           width: 34,
           height: 34,
           borderRadius: 17,
-          backgroundColor: "#111827",
+          backgroundColor: theme.colors.primary,
           borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.18)",
+          borderColor: "rgba(15,118,110,0.4)",
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
@@ -74,14 +75,11 @@ function ProfileButton() {
 export default function TabLayout() {
   const { state } = useApp();
 
-  useEffect(() => {
-    if (state.authReady && !state.authUser) {
-      router.replace("../login");
-    }
-  }, [state.authReady, state.authUser]);
-
-
   if (!state.authReady) return null;
+  if (!state.onboardingDone && !state.authUser && !state.isAnonymous) {
+    return <Redirect href={"/onboarding" as any} />;
+  }
+  if (!state.authUser && !state.isAnonymous) return <Redirect href="/login" />;
 
   return (
     <Tabs
@@ -89,21 +87,21 @@ export default function TabLayout() {
         // Header 
         headerShown: true,
         headerTitleStyle: {
-          color: "white",
+          color: theme.colors.text,
           fontWeight: "800",
         },
         headerStyle: {
-          backgroundColor: "#000000",
+          backgroundColor: theme.colors.bg,
         },
         headerShadowVisible: false,
         headerRight: () => <ProfileButton />,
 
         // Bottom tab bar
-        tabBarActiveTintColor: "#FFFFFF",
-        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.muted2,
         tabBarStyle: {
-          borderTopColor: "rgba(255,255,255,0.10)",
-          backgroundColor: "#000000",
+          borderTopColor: theme.colors.border,
+          backgroundColor: "rgba(255,255,255,0.98)",
           height: 66,
           paddingTop: 8,
           paddingBottom: 12,

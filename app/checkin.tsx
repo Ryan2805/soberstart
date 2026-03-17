@@ -1,15 +1,15 @@
+import { Card } from "@/components/Card";
+import { Screen } from "@/components/Screen";
+import { useApp } from "@/store/store";
+import { theme } from "@/theme";
+import { todayISO } from "@/utils/date";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
-import { Card } from "@/components/Card";
-import { Screen } from "@/components/Screen";
-import { theme } from "../theme";
-import { useApp } from "@/store/store";
-import { todayISO } from "@/utils/date";
 
 export default function CheckInModal() {
-  const { actions } = useApp();
+  const { state, actions } = useApp();
   const [mood, setMood] = useState("7");
   const [craving, setCraving] = useState("3");
   const [stress, setStress] = useState("4");
@@ -20,21 +20,24 @@ export default function CheckInModal() {
     return nums.every((n) => !Number.isNaN(n) && n >= 0 && n <= 10);
   }, [mood, craving, stress]);
 
-  const save = () => {
+  const save = async () => {
     if (!valid) {
-      Alert.alert("Numbers only", "Mood/Craving/Stress should be 0–10.");
+      Alert.alert("Numbers only", "Mood, craving, and stress should be between 0 and 10.");
       return;
     }
 
-    actions.addCheckIn({
-      date: todayISO(),
-      mood: Number(mood),
-      craving: Number(craving),
-      stress: Number(stress),
-      note: note.trim(),
-    });
-
-    router.back();
+    try {
+      await actions.addCheckIn({
+        date: todayISO(),
+        mood: Number(mood),
+        craving: Number(craving),
+        stress: Number(stress),
+        note: note.trim(),
+      });
+      router.back();
+    } catch (error: any) {
+      Alert.alert("Couldn't save check-in", String(error?.message ?? error));
+    }
   };
 
   return (
@@ -58,10 +61,7 @@ export default function CheckInModal() {
       </View>
 
       <Card style={{ marginBottom: 12 }}>
-        <Text style={{ fontWeight: "900", color: theme.colors.text, marginBottom: 10 }}>
-          Rate today (0–10)
-        </Text>
-
+        <Text style={{ fontWeight: "900", color: theme.colors.text, marginBottom: 10 }}>Rate today (0-10)</Text>
         <View style={{ flexDirection: "row", gap: 10 }}>
           <Mini label="Mood" icon="happy-outline" value={mood} setValue={setMood} />
           <Mini label="Craving" icon="flame-outline" value={craving} setValue={setCraving} />
@@ -69,14 +69,22 @@ export default function CheckInModal() {
         </View>
       </Card>
 
-      <Card>
-        <Text style={{ color: theme.colors.muted, fontWeight: "800", marginBottom: 6 }}>
-          Note (optional)
+      <Card style={{ marginBottom: 12 }}>
+        <Text style={{ color: theme.colors.muted, fontWeight: "800", marginBottom: 6 }}>Current streak</Text>
+        <Text style={{ color: theme.colors.text, fontSize: 26, fontWeight: "900" }}>
+          {state.streakDays} day{state.streakDays === 1 ? "" : "s"}
         </Text>
+        <Text style={{ color: theme.colors.muted, marginTop: 6 }}>
+          Consecutive daily check-ins are counted automatically.
+        </Text>
+      </Card>
+
+      <Card>
+        <Text style={{ color: theme.colors.muted, fontWeight: "800", marginBottom: 6 }}>Note (optional)</Text>
         <TextInput
           value={note}
           onChangeText={setNote}
-          placeholder="What’s going on today?"
+          placeholder="What's going on today?"
           placeholderTextColor={theme.colors.muted}
           multiline
           style={{
@@ -94,7 +102,7 @@ export default function CheckInModal() {
       </Card>
 
       <Text style={{ color: theme.colors.muted, marginTop: 10 }}>
-        This is demo logic: check-ins influence the Risk level on Home.
+        Saving a check-in updates today&apos;s status, risk level, and your streak.
       </Text>
     </Screen>
   );

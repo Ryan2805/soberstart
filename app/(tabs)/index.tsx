@@ -49,9 +49,7 @@ function QuickAction({
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={{ fontWeight: "900", color: theme.colors.text }}>
-            {title}
-          </Text>
+          <Text style={{ fontWeight: "900", color: theme.colors.text }}>{title}</Text>
           <Text style={{ color: theme.colors.muted, marginTop: 2 }} numberOfLines={1}>
             {subtitle}
           </Text>
@@ -78,11 +76,7 @@ export default function HomeScreen() {
 
   return (
     <Screen>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 28 }}
-      >
-       
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
         <View style={{ marginBottom: 14 }}>
           <Text
             style={{
@@ -93,12 +87,31 @@ export default function HomeScreen() {
           >
             Today
           </Text>
-          <Text style={{ color: theme.colors.muted, marginTop: 4 }}>
-            {formatShortDate(new Date())} • one day at a time
-          </Text>
+          <Text style={{ color: theme.colors.muted, marginTop: 4 }}>{formatShortDate(new Date())} | one day at a time</Text>
         </View>
 
-        {/* Hero - simplified */}
+        {state.isAnonymous && (
+          <View
+            style={{
+              backgroundColor: theme.colors.primarySoft,
+              borderWidth: 1,
+              borderColor: theme.colors.border,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderRadius: 14,
+              marginBottom: 12,
+              flexDirection: "row",
+              gap: 8,
+              alignItems: "center",
+            }}
+          >
+            <Ionicons name="shield-outline" size={16} color={theme.colors.primary} />
+            <Text style={{ color: theme.colors.primary, fontWeight: "800", flex: 1 }}>
+              Anonymous mode is active. Data is stored only on this device.
+            </Text>
+          </View>
+        )}
+
         <View
           style={{
             backgroundColor: theme.colors.primary,
@@ -112,9 +125,7 @@ export default function HomeScreen() {
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800" }}>
-                Current streak
-              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800" }}>Current streak</Text>
 
               <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, marginTop: 8 }}>
                 <Text
@@ -127,18 +138,11 @@ export default function HomeScreen() {
                 >
                   {state.streakDays}
                 </Text>
-                <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800", marginBottom: 10 }}>
-                  days
-                </Text>
+                <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800", marginBottom: 10 }}>days</Text>
               </View>
 
               <View style={{ marginTop: 12, flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                <Pill
-                  label={`Risk: ${state.riskLevel}`}
-                  icon="warning-outline"
-                  tint={riskColor}
-                  soft
-                />
+                <Pill label={`Risk: ${state.riskLevel}`} icon="warning-outline" tint={riskColor} soft />
                 <Pill
                   label={hasCheckedInToday ? "Checked in today" : "No check-in yet"}
                   icon={hasCheckedInToday ? "checkmark-circle-outline" : "time-outline"}
@@ -162,7 +166,6 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Primary action */}
           <Pressable
             onPress={() => router.push("/checkin" as any)}
             style={{
@@ -178,19 +181,13 @@ export default function HomeScreen() {
           >
             <Ionicons name="pulse-outline" size={18} color="white" />
             <Text style={{ color: "white", fontWeight: "900" }}>
-              {hasCheckedInToday ? "View check-in" : "Do today’s check-in"}
+              {hasCheckedInToday ? "View check-in" : "Do today's check-in"}
             </Text>
           </Pressable>
         </View>
 
-        {/* Quick actions */}
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 14 }}>
-          <QuickAction
-            title="Journal"
-            subtitle="Write or review entries"
-            icon="book-outline"
-            onPress={() => router.push("/journal")}
-          />
+          <QuickAction title="Journal" subtitle="Write or review entries" icon="book-outline" onPress={() => router.push("/journal")} />
           <QuickAction
             title="Tools"
             subtitle="Cravings, breathing, more"
@@ -199,31 +196,17 @@ export default function HomeScreen() {
           />
         </View>
 
-        {/* Stats row */}
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 14 }}>
-          <StatCard
-            title="Journal entries"
-            value={`${state.journal.length}`}
-            icon="reader-outline"
-          />
-          <StatCard
-            title="Check-ins"
-            value={`${state.checkIns.length}`}
-            icon="analytics-outline"
-          />
+          <StatCard title="Journal entries" value={`${state.journal.length}`} icon="reader-outline" />
+          <StatCard title="Check-ins" value={`${state.checkIns.length}`} icon="analytics-outline" />
         </View>
 
-        {/* Recent activity */}
         <Card>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ fontWeight: "900", color: theme.colors.text, fontSize: 16 }}>
-              Recent activity
-            </Text>
+            <Text style={{ fontWeight: "900", color: theme.colors.text, fontSize: 16 }}>Recent activity</Text>
 
             <Pressable onPress={() => router.push("/journal")}>
-              <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>
-                View all
-              </Text>
+              <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>View all</Text>
             </Pressable>
           </View>
 
@@ -243,16 +226,14 @@ export default function HomeScreen() {
                 {j.title}
               </Text>
               <Text style={{ color: theme.colors.muted, marginTop: 3 }} numberOfLines={1}>
-                {j.date} • {j.tags.slice(0, 2).join(", ") || "general"}
+                {j.date} | {j.tags.slice(0, 2).join(", ") || "general"}
               </Text>
             </Pressable>
           ))}
 
           {state.journal.length === 0 && (
             <View style={{ paddingVertical: 14 }}>
-              <Text style={{ color: theme.colors.muted }}>
-                No entries yet. Add one from the Journal tab.
-              </Text>
+              <Text style={{ color: theme.colors.muted }}>No entries yet. Add one from the Journal tab.</Text>
             </View>
           )}
         </Card>

@@ -1,50 +1,55 @@
-# Welcome to your Expo app 👋
+# Sober Start
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Expo app + Express/Prisma API for sobriety tracking (auth + user-owned journal entries).
 
-## Get started
+## Run locally (easiest)
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
+1. Install root deps:
 ```bash
-npm run reset-project
+npm install
+```
+2. Install server deps:
+```bash
+npm --prefix server install
+```
+3. Start app and API together:
+```bash
+npm run dev
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+This starts:
+- Expo dev server
+- API on `http://localhost:4000`
 
-## Learn more
+## API base URL
 
-To learn more about developing your project with Expo, look at the following resources:
+Frontend reads `EXPO_PUBLIC_API_BASE_URL` if set. If not set:
+- web/iOS simulator uses `http://localhost:4000`
+- Android emulator uses `http://10.0.2.2:4000`
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+For a physical phone on the same Wi-Fi, set your machine LAN IP:
+```bash
+$env:EXPO_PUBLIC_API_BASE_URL="http://192.168.1.50:4000"
+npm run dev
+```
 
-## Join the community
+Cloudflare tunnel is optional now and only needed for remote/off-network device testing.
 
-Join our community of developers creating universal apps.
+## Server env
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+`server/.env`:
+```env
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="dev-secret-change-later"
+PORT=4000
+```
+
+## Auth + journal API
+
+- `POST /auth/register`
+- `POST /auth/login`
+- `GET /me` (Bearer token)
+- `GET /journal` (user-scoped)
+- `POST /journal` (user-scoped)
+- `PUT /journal/:id` (owner only)
+- `DELETE /journal/:id` (owner only)

@@ -4,9 +4,12 @@ import { Card } from "@/components/Card";
 import { Screen } from "@/components/Screen";
 import { theme } from  "@/theme";
 import { useApp } from "@/store/store";
+import { router } from "expo-router";
 
 export default function AccountScreen() {
   const { state, actions } = useApp();
+  const displayName = state.authUser?.email?.split("@")[0] ?? state.profile.name;
+  const displayEmail = state.authUser?.email ?? state.profile.email;
 
   const reset = () => {
     Alert.alert("Reset demo data?", "This will restore the seeded dummy data.", [
@@ -39,9 +42,14 @@ export default function AccountScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontWeight: "900", color: theme.colors.text, fontSize: 16 }}>
-              {state.profile.name}
+              {displayName}
             </Text>
-            <Text style={{ color: theme.colors.muted }}>{state.profile.email}</Text>
+            <Text style={{ color: theme.colors.muted }}>{displayEmail}</Text>
+            {state.isAnonymous && (
+              <Text style={{ color: theme.colors.primary, marginTop: 3, fontWeight: "800" }}>
+                Anonymous mode active (local-only data)
+              </Text>
+            )}
           </View>
         </View>
       </Card>
@@ -81,6 +89,57 @@ export default function AccountScreen() {
             </Pressable>
           }
         />
+        <Divider />
+        {!state.isAnonymous ? (
+          <Row
+            icon="log-out-outline"
+            title="Sign out"
+            subtitle="Clear auth token on this device"
+            right={
+              <Pressable onPress={() => actions.logout()}>
+                <Text style={{ color: theme.colors.danger, fontWeight: "900" }}>Logout</Text>
+              </Pressable>
+            }
+          />
+        ) : (
+          <>
+            <Row
+              icon="person-add-outline"
+              title="Create account"
+              subtitle="Upgrade from anonymous mode"
+              right={
+                <Pressable onPress={() => router.push("/login")}>
+                  <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Open</Text>
+                </Pressable>
+              }
+            />
+            <Divider />
+            <Row
+              icon="exit-outline"
+              title="Exit anonymous mode"
+              subtitle="Clear local anonymous journal"
+              right={
+                <Pressable
+                  onPress={() =>
+                    Alert.alert("Exit anonymous mode?", "This clears anonymous journal data from this device.", [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Exit",
+                        style: "destructive",
+                        onPress: async () => {
+                          await actions.exitAnonymousMode();
+                          router.replace("/login");
+                        },
+                      },
+                    ])
+                  }
+                >
+                  <Text style={{ color: theme.colors.danger, fontWeight: "900" }}>Exit</Text>
+                </Pressable>
+              }
+            />
+          </>
+        )}
       </Card>
     </Screen>
   );

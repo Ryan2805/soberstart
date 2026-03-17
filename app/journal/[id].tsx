@@ -6,12 +6,15 @@ import { theme } from "@/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { Alert, Pressable, Text, View } from "react-native";
+import { useState } from "react";
 
 export default function JournalDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const { state, actions } = useApp();
+  const [deleting, setDeleting] = useState(false);
+  const entryId = Array.isArray(id) ? id[0] : id;
 
-  const entry = state.journal.find((j) => j.id === id);
+  const entry = state.journal.find((j) => j.id === entryId);
 
   if (!entry) {
     return (
@@ -25,23 +28,27 @@ export default function JournalDetailScreen() {
   }
 
   const onDelete = () => {
-  Alert.alert("Delete entry?", "This will delete it from your database.", [
-    { text: "Cancel", style: "cancel" },
-    {
-      text: "Delete",
-      style: "destructive",
-      onPress: async () => {
-        try {
-          await actions.deleteJournalApi(entry.id);
-          router.replace("/(tabs)/journal");
-        } catch (e: any) {
-          Alert.alert("Delete failed", e.message);
-        }
-      },
-    },
-  ]);
-};
+    if (deleting) return;
 
+    Alert.alert("Delete entry?", "This will permanently delete this journal entry.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setDeleting(true);
+            await actions.deleteJournalApi(entry.id);
+            router.replace("/(tabs)/journal");
+          } catch (e: any) {
+            Alert.alert("Delete failed", e.message ?? "Could not delete this entry.");
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <Screen>
@@ -52,7 +59,7 @@ export default function JournalDetailScreen() {
 
         <View style={{ flexDirection: "row", gap: 10 }}>
           <Pressable
-            onPress={() => Alert.alert("Coming soon", "Edit screen not built yet.")}
+            onPress={() => router.push({ pathname: "/journal/edit/[id]", params: { id: entry.id } })}
             style={{
               paddingHorizontal: 12,
               paddingVertical: 10,
@@ -71,11 +78,12 @@ export default function JournalDetailScreen() {
 
           <Pressable
             onPress={onDelete}
+            disabled={deleting}
             style={{
               paddingHorizontal: 12,
               paddingVertical: 10,
               borderRadius: 14,
-              backgroundColor: "rgba(220,38,38,0.12)",
+              backgroundColor: deleting ? "rgba(220,38,38,0.2)" : "rgba(220,38,38,0.12)",
               borderWidth: 1,
               borderColor: "rgba(220,38,38,0.25)",
               flexDirection: "row",
@@ -84,13 +92,29 @@ export default function JournalDetailScreen() {
             }}
           >
             <Ionicons name="trash-outline" size={18} color={theme.colors.danger} />
-            <Text style={{ fontWeight: "900", color: theme.colors.danger }}>Delete</Text>
+            <Text style={{ fontWeight: "900", color: theme.colors.danger }}>
+              {deleting ? "Deleting..." : "Delete"}
+            </Text>
           </Pressable>
         </View>
       </View>
 
-      <Text style={{ color: theme.colors.muted, fontWeight: "700" }}>{entry.date}</Text>
-      <Text style={{ fontSize: 26, fontWeight: "900", color: theme.colors.text, marginTop: 6 }}>
+      <View
+        style={{
+          backgroundColor: theme.colors.primarySoft,
+          borderColor: theme.colors.border,
+          borderWidth: 1,
+          borderRadius: 16,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          alignSelf: "flex-start",
+          marginBottom: 10,
+        }}
+      >
+        <Text style={{ color: theme.colors.primary, fontWeight: "800" }}>{entry.date}</Text>
+      </View>
+
+      <Text style={{ fontSize: 30, fontWeight: "900", color: theme.colors.text, marginTop: 2 }}>
         {entry.title}
       </Text>
 
@@ -101,12 +125,10 @@ export default function JournalDetailScreen() {
         {entry.tags.length === 0 && <Pill label="general" icon="pricetag-outline" />}
       </View>
 
-      <View style={{ height: 12 }} />
+      <View style={{ height: 14 }} />
 
       <Card>
-        <Text style={{ color: theme.colors.text, lineHeight: 22, fontSize: 15 }}>
-          {entry.content}
-        </Text>
+        <Text style={{ color: theme.colors.text, lineHeight: 24, fontSize: 16 }}>{entry.content}</Text>
 
         {!!entry.mood && (
           <View style={{ marginTop: 14, flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
