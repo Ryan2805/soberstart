@@ -4,6 +4,17 @@ Expo app + Express/Prisma API for sobriety tracking (auth + user-owned journal e
 
 This project is being migrated from local SQLite to hosted PostgreSQL so it can use Supabase for the database first, then Supabase Auth next.
 
+## Expo env
+
+Create a root `.env` for Expo when working on Supabase auth:
+```env
+EXPO_PUBLIC_API_BASE_URL="http://localhost:4000"
+EXPO_PUBLIC_SUPABASE_URL="https://your-project-ref.supabase.co"
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your-supabase-publishable-key"
+```
+
+Supabase client setup for the Expo app lives in `lib/supabase.ts`.
+
 ## Run locally (easiest)
 
 1. Install root deps:

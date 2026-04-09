@@ -1,37 +1,14 @@
 import { API_BASE_URL } from "@/config";
-import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
-
-const TOKEN_KEY = "token";
-
-
+import { supabase } from "@/lib/supabase";
 
 export async function getToken(): Promise<string | null> {
-  if (Platform.OS === "web") {
-    return localStorage.getItem(TOKEN_KEY);
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw new Error(error.message);
   }
-  return SecureStore.getItemAsync(TOKEN_KEY);
+
+  return data.session?.access_token ?? null;
 }
-
-export async function setToken(token: string): Promise<void> {
-  if (Platform.OS === "web") {
-    localStorage.setItem(TOKEN_KEY, token);
-    return;
-  }
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
-}
-
-export async function clearToken(): Promise<void> {
-  if (Platform.OS === "web") {
-    localStorage.removeItem(TOKEN_KEY);
-    return;
-  }
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
-}
-
-export const tokenStore = { getToken, setToken, clearToken };
-
-
 
 export async function api<T>(
   path: string,
