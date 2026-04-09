@@ -6,11 +6,13 @@ import helmet from "helmet";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 import pkg from "@prisma/client";
 const { PrismaClient } = pkg;
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const prisma = new PrismaClient({ adapter });
 
 const app = express();
 app.use(helmet());
