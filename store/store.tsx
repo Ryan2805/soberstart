@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useMemo, useState } from "react";
-import { api, tokenStore } from "../api/Client";
+import { type User } from "@supabase/supabase-js";
+import { api } from "../api/Client";
+import { supabase } from "@/lib/supabase";
 import { todayISO } from "../utils/date";
 
 export type RiskLevel = "Low" | "Medium" | "High";
@@ -142,6 +144,22 @@ const STORAGE_KEYS = {
 
 function persistProfile(profile: Profile) {
   return AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profile));
+}
+
+function mapAuthUser(user: User): NonNullable<AuthUser> {
+  return {
+    id: user.id,
+    email: user.email ?? "",
+  };
+}
+
+async function clearAnonymousStorage() {
+  await AsyncStorage.multiRemove([
+    STORAGE_KEYS.anonymousJournal,
+    STORAGE_KEYS.anonymousCheckIns,
+    STORAGE_KEYS.anonymousToolUses,
+    STORAGE_KEYS.anonymousUrges,
+  ]);
 }
 
 function computeRisk(checkIns: CheckIn[]): RiskLevel {
@@ -320,6 +338,15 @@ async function loadRemoteData() {
   };
 }
 
+async function loadSessionUser() {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data.session?.user ?? null;
+}
+
 const initialState: State = {
   authUser: null,
   authReady: false,
@@ -392,8 +419,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const token = await tokenStore.getToken();
-          if (!token) {
+          const user = await loadSessionUser();
+          if (!user) {
             setState((prev) => ({
               ...prev,
               authUser: null,
@@ -411,11 +438,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const [me, data] = await Promise.all([
-            api<{ user: { id: string; email: string } }>("/me", { auth: true }),
-            loadRemoteData(),
-          ]);
-          const nextProfile = { ...savedProfile, email: me.user.email || savedProfile.email };
+          let data = {
+            journal: [] as JournalEntry[],
+            checkIns: [] as CheckIn[],
+            toolUses: [] as ToolUse[],
+            urgeLogs: [] as UrgeLog[],
+          };
+
+          try {
+            data = await loadRemoteData();
+          } catch {
+            // The backend still expects the legacy token until the next migration step.
+          }
+
+          const authUser = mapAuthUser(user);
+          const nextProfile = { ...savedProfile, email: authUser.email || savedProfile.email };
 
           if (!onboardingDone) {
             await AsyncStorage.setItem(STORAGE_KEYS.onboarding, "1");
@@ -426,7 +463,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             applyRecoveryState(
               {
                 ...prev,
-                authUser: me.user,
+                authUser,
                 authReady: true,
                 onboardingDone: true,
                 isAnonymous: false,
@@ -441,7 +478,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             )
           );
         } catch {
-          await tokenStore.clearToken();
+          await supabase.auth.signOut();
           setState((prev) => ({
             ...prev,
             authUser: null,
@@ -473,91 +510,98 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       register: async (email, password) => {
-        const res = await api<{ user: { id: string; email: string }; token: string }>("/auth/register", {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
         });
+        if (error) {
+          throw new Error(error.message);
+        }
+        if (!data.user) {
+          throw new Error("Could not create your account.");
+        }
 
-        await tokenStore.setToken(res.token);
+        const authUser = mapAuthUser(data.user);
         await AsyncStorage.multiSet([
           [STORAGE_KEYS.onboarding, "1"],
           [STORAGE_KEYS.anonymous, "0"],
         ]);
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.anonymousJournal,
-          STORAGE_KEYS.anonymousCheckIns,
-          STORAGE_KEYS.anonymousToolUses,
-          STORAGE_KEYS.anonymousUrges,
-        ]);
+        await clearAnonymousStorage();
 
-        const data = await loadRemoteData();
-        setState((prev) =>
-          {
-            const nextProfile = { ...prev.profile, email: res.user.email || prev.profile.email };
+        if (!data.session) {
+          setState((prev) => {
+            const nextProfile = { ...prev.profile, email: authUser.email || prev.profile.email };
             void persistProfile(nextProfile);
-            return applyRecoveryState(
-              {
-                ...prev,
-                authUser: res.user,
-                onboardingDone: true,
-                isAnonymous: false,
-                journal: data.journal,
-                profile: nextProfile,
-              },
-              {
-                checkIns: data.checkIns,
-                toolUses: data.toolUses,
-                urgeLogs: data.urgeLogs,
-              }
-            );
-          }
-        );
+            return {
+              ...prev,
+              authUser: null,
+              onboardingDone: true,
+              isAnonymous: false,
+              profile: nextProfile,
+            };
+          });
+          throw new Error("Check your email to confirm your account, then log in.");
+        }
+
+        setState((prev) => {
+          const nextProfile = { ...prev.profile, email: authUser.email || prev.profile.email };
+          void persistProfile(nextProfile);
+          return {
+            ...prev,
+            authUser,
+            onboardingDone: true,
+            isAnonymous: false,
+            journal: [],
+            checkIns: [],
+            toolUses: [],
+            urgeLogs: [],
+            streakDays: 0,
+            riskLevel: "Low",
+            profile: nextProfile,
+          };
+        });
       },
 
       login: async (email, password) => {
-        const res = await api<{ user: { id: string; email: string }; token: string }>("/auth/login", {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
+        if (error) {
+          throw new Error(error.message);
+        }
+        if (!data.user) {
+          throw new Error("Could not log you in.");
+        }
 
-        await tokenStore.setToken(res.token);
+        const authUser = mapAuthUser(data.user);
         await AsyncStorage.multiSet([
           [STORAGE_KEYS.onboarding, "1"],
           [STORAGE_KEYS.anonymous, "0"],
         ]);
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.anonymousJournal,
-          STORAGE_KEYS.anonymousCheckIns,
-          STORAGE_KEYS.anonymousToolUses,
-          STORAGE_KEYS.anonymousUrges,
-        ]);
+        await clearAnonymousStorage();
 
-        const data = await loadRemoteData();
-        setState((prev) =>
-          {
-            const nextProfile = { ...prev.profile, email: res.user.email || prev.profile.email };
-            void persistProfile(nextProfile);
-            return applyRecoveryState(
-              {
-                ...prev,
-                authUser: res.user,
-                onboardingDone: true,
-                isAnonymous: false,
-                journal: data.journal,
-                profile: nextProfile,
-              },
-              {
-                checkIns: data.checkIns,
-                toolUses: data.toolUses,
-                urgeLogs: data.urgeLogs,
-              }
-            );
-          }
-        );
+        setState((prev) => {
+          const nextProfile = { ...prev.profile, email: authUser.email || prev.profile.email };
+          void persistProfile(nextProfile);
+          return {
+            ...prev,
+            authUser,
+            onboardingDone: true,
+            isAnonymous: false,
+            journal: [],
+            checkIns: [],
+            toolUses: [],
+            urgeLogs: [],
+            streakDays: 0,
+            riskLevel: "Low",
+            profile: nextProfile,
+          };
+        });
       },
 
       enterAnonymousMode: async () => {
-        await tokenStore.clearToken();
+        await supabase.auth.signOut();
         await AsyncStorage.multiSet([
           [STORAGE_KEYS.onboarding, "1"],
           [STORAGE_KEYS.anonymous, "1"],
@@ -574,6 +618,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             authUser: null,
             onboardingDone: true,
             isAnonymous: true,
+            journal: [],
+            checkIns: [],
+            toolUses: [],
+            urgeLogs: [],
+            streakDays: 0,
+            riskLevel: "Low",
             profile: nextProfile,
           };
         });
@@ -605,7 +655,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       logout: async () => {
-        await tokenStore.clearToken();
+        await supabase.auth.signOut();
         await AsyncStorage.setItem(STORAGE_KEYS.anonymous, "0");
         setState((prev) => ({
           ...prev,
