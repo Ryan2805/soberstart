@@ -105,7 +105,10 @@ export default function OnboardingScreen() {
         return;
       }
 
-      router.replace({ pathname: "/login", params: { mode: "register", ready: "1" } });
+      router.replace({
+        pathname: "/login",
+        params: { mode: "register", ready: "1", email: cleanProfile.email.trim() },
+      });
     } finally {
       setSubmitting(false);
     }
