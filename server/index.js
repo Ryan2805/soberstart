@@ -10,7 +10,35 @@ import { createClient } from "@supabase/supabase-js";
 import pkg from "@prisma/client";
 const { PrismaClient } = pkg;
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const runtimeDatabaseUrl = process.env.DIRECT_URL ?? process.env.DATABASE_URL;
+if (!runtimeDatabaseUrl) {
+  throw new Error("Missing database connection string");
+}
+
+const sslMode = process.env.PGSSLMODE?.trim().toLowerCase();
+const rejectUnauthorized =
+  process.env.DATABASE_TLS_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false";
+let normalizedDatabaseUrl = runtimeDatabaseUrl;
+const adapterConfig = {};
+
+if (sslMode === "no-verify") {
+  if (/[?&]sslmode=/i.test(normalizedDatabaseUrl)) {
+    normalizedDatabaseUrl = normalizedDatabaseUrl.replace(
+      /([?&]sslmode=)([^&]+)/i,
+      "$1no-verify"
+    );
+  } else {
+    normalizedDatabaseUrl += `${normalizedDatabaseUrl.includes("?") ? "&" : "?"}sslmode=no-verify`;
+  }
+}
+
+adapterConfig.connectionString = normalizedDatabaseUrl;
+
+if (sslMode === "no-verify" || !rejectUnauthorized) {
+  adapterConfig.ssl = { rejectUnauthorized: false };
+}
+
+const adapter = new PrismaPg(adapterConfig);
 const prisma = new PrismaClient({ adapter });
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabasePublishableKey =
