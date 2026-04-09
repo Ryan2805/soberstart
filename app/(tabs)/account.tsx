@@ -18,6 +18,20 @@ export default function AccountScreen() {
     ]);
   };
 
+  const restart = () => {
+    Alert.alert("Start over?", "This will sign you out on this device and return you to onboarding.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Start over",
+        style: "destructive",
+        onPress: async () => {
+          await actions.restartOnboarding();
+          router.replace("/onboarding");
+        },
+      },
+    ]);
+  };
+
   return (
     <Screen scroll>
       <Text style={{ fontSize: 26, fontWeight: "900", color: theme.colors.text, marginBottom: 14 }}>
@@ -109,6 +123,17 @@ export default function AccountScreen() {
           right={
             <Pressable onPress={reset}>
               <Text style={{ color: theme.colors.danger, fontWeight: "900" }}>Reset</Text>
+            </Pressable>
+          }
+        />
+        <Divider />
+        <Row
+          icon="reload-outline"
+          title="Start onboarding again"
+          subtitle="Clear saved app state on this device"
+          right={
+            <Pressable onPress={restart}>
+              <Text style={{ color: theme.colors.danger, fontWeight: "900" }}>Restart</Text>
             </Pressable>
           }
         />

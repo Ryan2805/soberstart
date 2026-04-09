@@ -78,7 +78,7 @@ type Actions = {
   hydrateAuth: () => Promise<void>;
   restartOnboarding: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<"signed_in" | "confirmation_required">;
   login: (email: string, password: string) => Promise<void>;
   enterAnonymousMode: () => Promise<void>;
   exitAnonymousMode: () => Promise<void>;
@@ -159,6 +159,18 @@ async function clearAnonymousStorage() {
     STORAGE_KEYS.anonymousCheckIns,
     STORAGE_KEYS.anonymousToolUses,
     STORAGE_KEYS.anonymousUrges,
+  ]);
+}
+
+async function clearLocalAppState() {
+  await AsyncStorage.multiRemove([
+    STORAGE_KEYS.onboarding,
+    STORAGE_KEYS.anonymous,
+    STORAGE_KEYS.anonymousJournal,
+    STORAGE_KEYS.anonymousCheckIns,
+    STORAGE_KEYS.anonymousToolUses,
+    STORAGE_KEYS.anonymousUrges,
+    STORAGE_KEYS.profile,
   ]);
 }
 
@@ -495,9 +507,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       restartOnboarding: async () => {
-        await AsyncStorage.setItem(STORAGE_KEYS.onboarding, "0");
+        await supabase.auth.signOut();
+        await clearLocalAppState();
         setState((prev) => ({
           ...prev,
+          ...initialState,
+          authReady: true,
           onboardingDone: false,
           isAnonymous: false,
           authUser: null,
@@ -540,7 +555,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               profile: nextProfile,
             };
           });
-          throw new Error("Check your email to confirm your account, then log in.");
+          return "confirmation_required";
         }
 
         setState((prev) => {
@@ -560,6 +575,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             profile: nextProfile,
           };
         });
+        return "signed_in";
       },
 
       login: async (email, password) => {
@@ -630,27 +646,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
 
       exitAnonymousMode: async () => {
-        await AsyncStorage.multiSet([
-          [STORAGE_KEYS.anonymous, "0"],
-          [STORAGE_KEYS.onboarding, "0"],
-        ]);
-        await AsyncStorage.multiRemove([
-          STORAGE_KEYS.anonymousJournal,
-          STORAGE_KEYS.anonymousCheckIns,
-          STORAGE_KEYS.anonymousToolUses,
-          STORAGE_KEYS.anonymousUrges,
-        ]);
+        await supabase.auth.signOut();
+        await clearLocalAppState();
         setState((prev) => ({
           ...prev,
+          ...initialState,
+          authReady: true,
           authUser: null,
           onboardingDone: false,
           isAnonymous: false,
-          journal: [],
-          checkIns: [],
-          toolUses: [],
-          urgeLogs: [],
-          streakDays: 0,
-          riskLevel: "Low",
         }));
       },
 

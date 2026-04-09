@@ -17,19 +17,28 @@ import {
 
 export default function LoginScreen() {
   const { state, actions } = useApp();
-  const params = useLocalSearchParams<{ mode?: string; upgrade?: string; ready?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; upgrade?: string; ready?: string; email?: string }>();
   const upgradeMode = params.upgrade === "1";
   const readyToRegister = params.ready === "1";
   const initialMode = params.mode === "register" ? "register" : "login";
+  const initialEmail = typeof params.email === "string" ? params.email : "";
 
   const [mode, setMode] = useState<"login" | "register">(initialMode);
-  const [email, setEmail] = useState(state.profile.email === "anonymous@local" ? "" : state.profile.email);
+  const [email, setEmail] = useState(
+    initialEmail || (state.profile.email === "anonymous@local" ? "" : state.profile.email)
+  );
   const [password, setPassword] = useState("Password123");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    if (initialEmail) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail]);
 
   async function onSubmit() {
     const cleanEmail = email.trim();
@@ -52,12 +61,22 @@ export default function LoginScreen() {
       setLoading(true);
       if (mode === "login") {
         await actions.login(cleanEmail, password);
-      } else if (!upgradeMode && !readyToRegister) {
-        await actions.restartOnboarding();
-        router.replace({ pathname: "/onboarding", params: { mode: "register" } });
-        return;
       } else {
-        await actions.register(cleanEmail, password);
+        const result = await actions.register(cleanEmail, password);
+        if (result === "confirmation_required") {
+          Alert.alert(
+            "Check your email",
+            "Your account was created. Confirm your email, then log in.",
+            [
+              {
+                text: "OK",
+                onPress: () =>
+                  router.replace({ pathname: "/login", params: { mode: "login", email: cleanEmail } }),
+              },
+            ]
+          );
+          return;
+        }
       }
       router.replace("/(tabs)");
     } catch (e: any) {
@@ -199,14 +218,22 @@ export default function LoginScreen() {
                 <Text style={{ fontWeight: "900", color: "white" }}>Please wait...</Text>
               </View>
             ) : (
-              <Text style={{ fontWeight: "900", fontSize: 16, color: "white" }}>
-                {mode === "login" ? "Login" : readyToRegister || upgradeMode ? "Create account" : "Continue to onboarding"}
+            <Text style={{ fontWeight: "900", fontSize: 16, color: "white" }}>
+                {mode === "login" ? "Login" : "Create account"}
               </Text>
             )}
           </Pressable>
 
           <Pressable
-            onPress={() => setMode((m) => (m === "login" ? "register" : "login"))}
+            onPress={async () => {
+              if (mode === "login" && !upgradeMode && !readyToRegister) {
+                await actions.restartOnboarding();
+                router.replace("/onboarding");
+                return;
+              }
+
+              setMode((m) => (m === "login" ? "register" : "login"));
+            }}
             disabled={loading}
             style={{
               paddingVertical: 8,
@@ -218,10 +245,31 @@ export default function LoginScreen() {
           >
             <Text style={{ textAlign: "center", fontWeight: "800", color: theme.colors.primary }}>
               {mode === "login"
-                ? "No account? Tap to register"
+                ? readyToRegister || upgradeMode
+                  ? "Need an account? Tap to create one"
+                  : "Need an account? Start with onboarding"
                 : "Already have an account? Tap to login"}
             </Text>
           </Pressable>
+
+          {mode === "login" && !upgradeMode && !readyToRegister && (
+            <Pressable
+              onPress={async () => {
+                await actions.restartOnboarding();
+                router.replace("/onboarding");
+              }}
+              disabled={loading}
+              style={{
+                paddingVertical: 8,
+                borderRadius: 12,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ textAlign: "center", fontWeight: "800", color: theme.colors.muted }}>
+                New here? Start onboarding first
+              </Text>
+            </Pressable>
+          )}
 
           {!upgradeMode && (
             <Pressable
