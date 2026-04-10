@@ -1,85 +1,62 @@
 # Sober Start
 
-Expo app + Express/Prisma API for sobriety tracking (auth + user-owned journal entries).
+Sober Start is a mobile recovery support app built to help people stay grounded, track progress, and build healthier daily habits. The app combines sobriety tracking, daily check-ins, journaling, and coping tools in one simple experience.
 
+## Features
 
+- Daily sobriety tracking
+- Check-ins to log how you are feeling
+- Personal journal entries
+- Recovery tools for cravings and difficult moments
+- Progress insights and streak tracking
+- Account and profile management
 
-## Expo env
+## Tech Stack
 
-Create a root `.env` for Expo when working on Supabase auth:
-```env
-EXPO_PUBLIC_API_BASE_URL="http://localhost:4000"
-EXPO_PUBLIC_SUPABASE_URL="https://your-project-ref.supabase.co"
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY="your-supabase-publishable-key"
-```
+- Expo / React Native frontend
+- Express API backend
+- Prisma ORM
+- PostgreSQL database
 
-Supabase client setup for the Expo app lives in `lib/supabase.ts`.
+## Running Locally
 
-## Run locally (easiest)
-
-1. Install root deps:
+1. Install frontend dependencies:
 ```bash
 npm install
-```
-2. Install server deps:
-```bash
+Install server dependencies:
+bash
+
 npm --prefix server install
-```
-3. Start app and API together:
-```bash
-npm run dev
-```
+Start the app and API together:
+bash
 
+npm run dev
 This starts:
-- Expo dev server
-- API on `http://localhost:4000`
 
-## API base URL
+The Expo development server
+The backend API on http://localhost:4000
+Project Structure
+text
 
-Frontend reads `EXPO_PUBLIC_API_BASE_URL` if set. If not set:
-- web/iOS simulator uses `http://localhost:4000`
-- Android emulator uses `http://10.0.2.2:4000`
-
-For a physical phone on the same Wi-Fi, set your machine LAN IP:
-```bash
-$env:EXPO_PUBLIC_API_BASE_URL="http://192.168.1.50:4000"
-npm run dev
-```
-
-Cloudflare tunnel is optional now and only needed for remote/off-network device testing.
-
-## Server env
-
-`server/.env`:
-```env
-DATABASE_URL="postgresql://postgres.<project-ref>:<password>@<session-pooler-host>:5432/postgres?sslmode=require"
-DIRECT_URL="postgresql://postgres:<password>@db.<project-ref>.supabase.co:5432/postgres?sslmode=require"
-SUPABASE_URL="https://your-project-ref.supabase.co"
-SUPABASE_PUBLISHABLE_KEY="your-supabase-publishable-key"
-PORT=4000
-```
-
-## Supabase database setup
-
-1. Create a Supabase project.
-2. Go to `Project Settings -> Database`.
-3. Copy the `Session Pooler` connection string for `DATABASE_URL`.
-4. Copy the direct connection string for `DIRECT_URL`.
-5. Put both into `server/.env`.
-6. Create the first PostgreSQL migration with `npm --prefix server run prisma:migrate`.
-7. Start the API.
+app/          Expo Router screens
+components/   Reusable UI components
+server/       Express API and Prisma backend
+store/        App state management
+theme.ts      Shared design tokens
+utils/        Utility helpers
+Main Screens
+Home dashboard
+Daily check-in
+Journal
+Recovery tools
+Account
+API Overview
+GET /me
+GET /journal
+POST /journal
+PUT /journal/:id
+DELETE /journal/:id
+Purpose
+Sober Start was created as a recovery-focused mobile application designed to support users with reflection, accountability, and practical in-the-moment tools.
 
 
-
-
-## Auth + journal API
-
-- `GET /me` (Bearer token)
-- `GET /journal` (user-scoped)
-- `POST /journal` (user-scoped)
-- `PUT /journal/:id` (owner only)
-- `DELETE /journal/:id` (owner only)
-
-Legacy auth routes:
-- `POST /auth/register` returns `410` because sign-up now happens in Supabase Auth
-- `POST /auth/login` returns `410` because sign-in now happens in Supabase Auth
