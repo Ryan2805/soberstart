@@ -4,11 +4,16 @@ export const Colors = {
   // Brand
   primary: "#0F766E",
   primarySoft: "#CCFBF1",
-  accent: "#F97316",
+  primaryDeep: "#115E59",
+  accent: "#3B82A6",
+  accentSoft: "#DCEFFA",
 
   // Backgrounds / surfaces
-  bg: "#F8FAFC",
+  bg: "#F4F7F5",
+  bgSoft: "#ECF4F1",
+  bgElevated: "#FAFCFB",
   card: "#FFFFFF",
+  cardMuted: "#F7FBF9",
 
   // Text
   text: "#0B1220",
@@ -19,6 +24,7 @@ export const Colors = {
   // Borders
   border: "#E2E8F0",
   borderSoft: "#CBD5E1",
+  borderStrong: "#BFD3CD",
 
   // Status
   success: "#16A34A",
@@ -59,18 +65,18 @@ export const FontSizes = {
 
 export const Shadows = {
   card: {
-    shadowColor: "#000",
+    shadowColor: "#0F172A",
     shadowOpacity: 0.08,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 5,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 7,
   },
   floating: {
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
+    shadowColor: "#0B1220",
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 10,
   },
 };
 

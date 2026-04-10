@@ -17,30 +17,62 @@ export function StatCard({
       style={{
         flex: 1,
         backgroundColor: theme.colors.card,
-        borderRadius: theme.radius.card,
-        padding: 14,
+        borderRadius: 24,
+        padding: 16,
         borderWidth: 1,
-        borderColor: theme.colors.border,
+        borderColor: theme.colors.borderSoft,
         ...theme.shadows.card,
       }}
     >
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
         <Text style={{ color: theme.colors.muted, fontWeight: "800" }}>
           {title}
         </Text>
-        <Ionicons name={icon} size={18} color={theme.colors.primary} />
+        <View
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: theme.colors.primarySoft,
+            borderWidth: 1,
+            borderColor: theme.colors.borderSoft,
+          }}
+        >
+          <Ionicons name={icon} size={18} color={theme.colors.primary} />
+        </View>
       </View>
 
       <Text
         style={{
-          marginTop: 10,
-          fontSize: 26,
+          marginTop: 18,
+          fontSize: 30,
           fontWeight: "900",
           color: theme.colors.text,
         }}
       >
         {value}
       </Text>
+
+      <View
+        style={{
+          marginTop: 12,
+          height: 6,
+          borderRadius: 999,
+          backgroundColor: theme.colors.bgSoft,
+          overflow: "hidden",
+        }}
+      >
+        <View
+          style={{
+            width: "58%",
+            height: "100%",
+            borderRadius: 999,
+            backgroundColor: theme.colors.primary,
+          }}
+        />
+      </View>
     </View>
   );
 }

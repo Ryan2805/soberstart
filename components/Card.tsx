@@ -8,10 +8,10 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
       style={[
         {
           backgroundColor: theme.colors.card,
-          borderRadius: theme.radius.card,
-          padding: 16,
+          borderRadius: 24,
+          padding: 18,
           borderWidth: 1,
-          borderColor: theme.colors.border,
+          borderColor: theme.colors.borderSoft,
           shadowColor: theme.shadows.card.shadowColor,
           shadowOpacity: theme.shadows.card.shadowOpacity,
           shadowRadius: theme.shadows.card.shadowRadius,
@@ -21,6 +21,19 @@ export function Card({ children, style }: { children: ReactNode; style?: ViewSty
         style,
       ]}
     >
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 48,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          backgroundColor: theme.colors.cardMuted,
+        }}
+      />
       {children}
     </View>
   );

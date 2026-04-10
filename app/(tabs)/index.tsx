@@ -14,11 +14,13 @@ function QuickAction({
   title,
   subtitle,
   icon,
+  tint,
   onPress,
 }: {
   title: string;
   subtitle: string;
   icon: keyof typeof Ionicons.glyphMap;
+  tint: string;
   onPress: () => void;
 }) {
   return (
@@ -26,24 +28,25 @@ function QuickAction({
       onPress={onPress}
       style={{
         flex: 1,
+        minHeight: 116,
         backgroundColor: theme.colors.card,
-        borderRadius: 18,
-        padding: 14,
+        borderRadius: 22,
+        padding: 16,
         borderWidth: 1,
-        borderColor: theme.colors.border,
+        borderColor: theme.colors.borderSoft,
       }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
         <View
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 14,
+            width: 46,
+            height: 46,
+            borderRadius: 16,
             alignItems: "center",
             justifyContent: "center",
-            backgroundColor: theme.colors.primarySoft,
+            backgroundColor: tint,
             borderWidth: 1,
-            borderColor: theme.colors.border,
+            borderColor: theme.colors.borderSoft,
           }}
         >
           <Ionicons name={icon} size={18} color={theme.colors.primary} />
@@ -51,14 +54,59 @@ function QuickAction({
 
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: "900", color: theme.colors.text }}>{title}</Text>
-          <Text style={{ color: theme.colors.muted, marginTop: 2 }} numberOfLines={1}>
+          <Text style={{ color: theme.colors.muted, marginTop: 4, lineHeight: 19 }} numberOfLines={3}>
             {subtitle}
           </Text>
         </View>
+      </View>
 
-        <Ionicons name="chevron-forward" size={18} color={theme.colors.muted} />
+      <View style={{ marginTop: 14, flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Open</Text>
+        <Ionicons name="arrow-forward" size={14} color={theme.colors.primary} />
       </View>
     </Pressable>
+  );
+}
+
+function InsightChip({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        minWidth: 140,
+        padding: 14,
+        borderRadius: 20,
+        backgroundColor: theme.colors.card,
+        borderWidth: 1,
+        borderColor: theme.colors.borderSoft,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 10,
+            backgroundColor: theme.colors.bgSoft,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name={icon} size={15} color={theme.colors.primary} />
+        </View>
+        <Text style={{ color: theme.colors.muted, fontWeight: "800", flex: 1 }}>{label}</Text>
+      </View>
+
+      <Text style={{ color: theme.colors.text, fontSize: 18, fontWeight: "900", marginTop: 12 }}>{value}</Text>
+    </View>
   );
 }
 
@@ -70,68 +118,117 @@ export default function HomeScreen() {
   const hasSoberDate = !!state.profile.soberStartDate;
   const headlineLabel = hasSoberDate ? "Sobriety timer" : "Current streak";
   const headlineSubtext = hasSoberDate ? `Started ${state.profile.soberStartDate}` : "Based on daily check-ins";
+  const firstName = state.profile.name?.trim().split(/\s+/)[0] || "friend";
+  const soberFocus =
+    state.profile.soberFrom.length > 0 ? state.profile.soberFrom.join(", ") : "your recovery goals";
 
   const riskColor =
     state.riskLevel === "Low"
       ? theme.colors.success
       : state.riskLevel === "Medium"
-      ? theme.colors.warning
-      : theme.colors.danger;
+        ? theme.colors.warning
+        : theme.colors.danger;
 
   return (
     <Screen>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
-        <View style={{ marginBottom: 14 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ color: theme.colors.primary, fontWeight: "900", letterSpacing: 0.6, textTransform: "uppercase" }}>
+            Daily reset
+          </Text>
           <Text
             style={{
-              fontSize: 22,
+              fontSize: 28,
               fontWeight: "900",
               color: theme.colors.text,
+              marginTop: 6,
             }}
           >
-            Today
+            {`Welcome back, ${firstName}`}
           </Text>
-          <Text style={{ color: theme.colors.muted, marginTop: 4 }}>{formatShortDate(new Date())} | one day at a time</Text>
+          <Text style={{ color: theme.colors.muted, marginTop: 4, lineHeight: 20 }}>
+            {formatShortDate(new Date())} | building momentum one grounded choice at a time
+          </Text>
         </View>
 
         {state.isAnonymous && (
           <View
             style={{
-              backgroundColor: theme.colors.primarySoft,
+              backgroundColor: theme.colors.card,
               borderWidth: 1,
-              borderColor: theme.colors.border,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 14,
-              marginBottom: 12,
+              borderColor: theme.colors.borderSoft,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              borderRadius: 18,
+              marginBottom: 14,
               flexDirection: "row",
-              gap: 8,
-              alignItems: "center",
+              gap: 10,
+              alignItems: "flex-start",
             }}
           >
-            <Ionicons name="shield-outline" size={16} color={theme.colors.primary} />
-            <Text style={{ color: theme.colors.primary, fontWeight: "800", flex: 1 }}>
-              Anonymous mode is active. Data is stored only on this device.
-            </Text>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 12,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: theme.colors.primarySoft,
+              }}
+            >
+              <Ionicons name="shield-outline" size={16} color={theme.colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.colors.text, fontWeight: "900" }}>Anonymous mode is active</Text>
+              <Text style={{ color: theme.colors.muted, marginTop: 3 }}>
+                Your recovery data is currently stored only on this device.
+              </Text>
+            </View>
           </View>
         )}
 
         <View
           style={{
-            backgroundColor: theme.colors.primary,
-            borderRadius: 26,
-            padding: 18,
+            backgroundColor: theme.colors.primaryDeep,
+            borderRadius: 30,
+            padding: 20,
             overflow: "hidden",
             borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.18)",
-            marginBottom: 14,
+            borderColor: "rgba(255,255,255,0.10)",
+            marginBottom: 16,
           }}
         >
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              width: 220,
+              height: 220,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.08)",
+              right: -80,
+              top: -80,
+            }}
+          />
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              width: 150,
+              height: 150,
+              borderRadius: 999,
+              backgroundColor: "rgba(59,130,166,0.18)",
+              left: -50,
+              bottom: -40,
+            }}
+          />
+
           <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800" }}>{headlineLabel}</Text>
-
-              <Text style={{ color: "rgba(255,255,255,0.8)", marginTop: 4, fontWeight: "700" }}>{headlineSubtext}</Text>
+              <Text style={{ color: "rgba(255,255,255,0.78)", fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                {headlineLabel}
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.8)", marginTop: 6, fontWeight: "700" }}>{headlineSubtext}</Text>
 
               {hasSoberDate ? (
                 <SobrietyTimer startDate={state.profile.soberStartDate} />
@@ -164,59 +261,124 @@ export default function HomeScreen() {
 
             <View
               style={{
-                width: 46,
-                height: 46,
-                borderRadius: 16,
-                backgroundColor: "rgba(255,255,255,0.14)",
+                width: 52,
+                height: 52,
+                borderRadius: 18,
+                backgroundColor: "rgba(255,255,255,0.12)",
                 alignItems: "center",
                 justifyContent: "center",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.14)",
               }}
             >
               <Ionicons name="leaf-outline" size={22} color="white" />
             </View>
           </View>
 
+          <View
+            style={{
+              marginTop: 16,
+              marginBottom: 4,
+              padding: 14,
+              borderRadius: 20,
+              backgroundColor: "rgba(255,255,255,0.10)",
+              borderWidth: 1,
+              borderColor: "rgba(255,255,255,0.08)",
+            }}
+          >
+            <Text style={{ color: "rgba(255,255,255,0.72)", fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.4 }}>
+              Today&apos;s focus
+            </Text>
+            <Text style={{ color: "white", fontSize: 18, fontWeight: "900", marginTop: 6 }}>
+              {hasCheckedInToday ? "Keep the streak steady" : "Take a quick check-in pulse"}
+            </Text>
+            <Text style={{ color: "rgba(255,255,255,0.8)", marginTop: 4, lineHeight: 20 }}>
+              {hasCheckedInToday
+                ? "You have already logged today. A journal note or grounding tool can help reinforce what is working."
+                : "A 60-second check-in will capture how you are feeling before the day gets away from you."}
+            </Text>
+          </View>
+
           <Pressable
             onPress={() => router.push("/checkin" as any)}
             style={{
               marginTop: 14,
-              backgroundColor: "rgba(255,255,255,0.18)",
-              borderRadius: 16,
-              paddingVertical: 12,
+              backgroundColor: theme.colors.accent,
+              borderRadius: 18,
+              paddingVertical: 14,
               alignItems: "center",
               flexDirection: "row",
               justifyContent: "center",
               gap: 8,
             }}
           >
-            <Ionicons name="pulse-outline" size={18} color="white" />
+            <Ionicons name="pulse-outline" size={18} color={theme.colors.white} />
             <Text style={{ color: "white", fontWeight: "900" }}>
               {hasCheckedInToday ? "View check-in" : "Do today's check-in"}
             </Text>
           </Pressable>
         </View>
 
-        <Card style={{ marginBottom: 14 }}>
+        <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+          <InsightChip
+            label="Focus"
+            value={state.profile.goals[0] || "Protect your energy"}
+            icon="flag-outline"
+          />
+          <InsightChip
+            label="Latest entry"
+            value={state.journal[0]?.title || "No journal yet"}
+            icon="document-text-outline"
+          />
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+          <QuickAction
+            title="Journal"
+            subtitle={
+              state.journal.length > 0
+                ? `Capture today or revisit ${state.journal.length} saved entries`
+                : "Start your first reflection entry"
+            }
+            icon="book-outline"
+            tint={theme.colors.primarySoft}
+            onPress={() => router.push("/journal")}
+          />
+          <QuickAction
+            title="Tools"
+            subtitle="Grounding exercises, urge support, and relief tools"
+            icon="sparkles-outline"
+            tint={theme.colors.accentSoft}
+            onPress={() => router.push("/tools" as any)}
+          />
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
+          <StatCard title="Journal entries" value={`${state.journal.length}`} icon="reader-outline" />
+          <StatCard title="Check-ins" value={`${state.checkIns.length}`} icon="analytics-outline" />
+        </View>
+
+        <Card style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: theme.colors.muted, fontWeight: "800" }}>Recovery profile</Text>
-              <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: "900", marginTop: 4 }}>
+              <Text style={{ color: theme.colors.text, fontSize: 20, fontWeight: "900", marginTop: 6 }}>
                 {state.profile.name ? `${state.profile.name}'s focus` : "Your focus"}
               </Text>
               <Text style={{ color: theme.colors.muted, marginTop: 6, lineHeight: 20 }}>
                 {state.profile.soberFrom.length > 0
-                  ? `Sober from ${state.profile.soberFrom.join(", ")}`
+                  ? `Staying clear of ${soberFocus}`
                   : "Add your sober focus in onboarding or account setup."}
               </Text>
             </View>
             <View
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 16,
+                width: 48,
+                height: 48,
+                borderRadius: 18,
                 backgroundColor: theme.colors.primarySoft,
                 borderWidth: 1,
-                borderColor: theme.colors.border,
+                borderColor: theme.colors.borderSoft,
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -226,7 +388,7 @@ export default function HomeScreen() {
           </View>
 
           {state.profile.goals.length > 0 && (
-            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
               {state.profile.goals.map((goal) => (
                 <Pill key={goal} label={goal} tint={theme.colors.primary} soft />
               ))}
@@ -234,30 +396,28 @@ export default function HomeScreen() {
           )}
 
           {!!state.profile.motivation && (
-            <Text style={{ color: theme.colors.text, marginTop: 12, lineHeight: 21 }}>
-              {`"${state.profile.motivation}"`}
-            </Text>
+            <View
+              style={{
+                marginTop: 14,
+                padding: 14,
+                borderRadius: 18,
+                backgroundColor: theme.colors.bgSoft,
+                borderWidth: 1,
+                borderColor: theme.colors.borderSoft,
+              }}
+            >
+              <Text style={{ color: theme.colors.muted, fontWeight: "800", marginBottom: 6 }}>Why this matters</Text>
+              <Text style={{ color: theme.colors.text, lineHeight: 21 }}>{state.profile.motivation}</Text>
+            </View>
           )}
         </Card>
 
-        <View style={{ flexDirection: "row", gap: 12, marginBottom: 14 }}>
-          <QuickAction title="Journal" subtitle="Write or review entries" icon="book-outline" onPress={() => router.push("/journal")} />
-          <QuickAction
-            title="Tools"
-            subtitle="Cravings, breathing, more"
-            icon="sparkles-outline"
-            onPress={() => router.push("/tools" as any)}
-          />
-        </View>
-
-        <View style={{ flexDirection: "row", gap: 12, marginBottom: 14 }}>
-          <StatCard title="Journal entries" value={`${state.journal.length}`} icon="reader-outline" />
-          <StatCard title="Check-ins" value={`${state.checkIns.length}`} icon="analytics-outline" />
-        </View>
-
         <Card>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-            <Text style={{ fontWeight: "900", color: theme.colors.text, fontSize: 16 }}>Recent activity</Text>
+            <View>
+              <Text style={{ fontWeight: "900", color: theme.colors.text, fontSize: 16 }}>Recent activity</Text>
+              <Text style={{ color: theme.colors.muted, marginTop: 3 }}>Your latest notes and reflections</Text>
+            </View>
 
             <Pressable onPress={() => router.push("/journal")}>
               <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>View all</Text>
@@ -273,7 +433,7 @@ export default function HomeScreen() {
               style={{
                 paddingVertical: 12,
                 borderTopWidth: 1,
-                borderTopColor: theme.colors.border,
+                borderTopColor: theme.colors.borderSoft,
               }}
             >
               <Text style={{ fontWeight: "900", color: theme.colors.text }} numberOfLines={1}>
