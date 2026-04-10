@@ -47,12 +47,37 @@ export function Screen({
         pointerEvents="none"
         style={{
           position: "absolute",
-          width: 220,
-          height: 220,
+          width: 260,
+          height: 260,
           borderRadius: 999,
-          right: -80,
-          top: -70,
-          backgroundColor: "rgba(15,118,110,0.12)",
+          right: -70,
+          top: -90,
+          backgroundColor: "rgba(15,118,110,0.14)",
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          width: 240,
+          height: 240,
+          borderRadius: 999,
+          left: -90,
+          top: 180,
+          backgroundColor: "rgba(59,130,166,0.10)",
+        }}
+      />
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          left: 20,
+          right: 20,
+          top: 96,
+          height: 220,
+          borderRadius: 36,
+          backgroundColor: theme.colors.bgSoft,
+          opacity: 0.8,
         }}
       />
       <View
@@ -62,9 +87,9 @@ export function Screen({
           width: 180,
           height: 180,
           borderRadius: 999,
-          left: -70,
-          top: 140,
-          backgroundColor: "rgba(249,115,22,0.08)",
+          right: 40,
+          bottom: 120,
+          backgroundColor: "rgba(15,118,110,0.07)",
         }}
       />
       {keyboard ? (
