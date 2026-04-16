@@ -121,11 +121,13 @@ export default function HomeScreen() {
   const firstName = state.profile.name?.trim().split(/\s+/)[0] || "friend";
   const soberFocus =
     state.profile.soberFrom.length > 0 ? state.profile.soberFrom.join(", ") : "your recovery goals";
+  const riskAssessment = state.riskAssessment;
+  const displayRiskLevel = riskAssessment?.riskLevel ?? state.riskLevel;
 
   const riskColor =
-    state.riskLevel === "Low"
+    displayRiskLevel === "Low"
       ? theme.colors.success
-      : state.riskLevel === "Medium"
+      : displayRiskLevel === "Medium"
         ? theme.colors.warning
         : theme.colors.danger;
 
@@ -249,7 +251,7 @@ export default function HomeScreen() {
               )}
 
               <View style={{ marginTop: 12, flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-                <Pill label={`Risk: ${state.riskLevel}`} icon="warning-outline" tint={riskColor} soft />
+                <Pill label={`Risk: ${displayRiskLevel}`} icon="warning-outline" tint={riskColor} soft />
                 <Pill
                   label={hasCheckedInToday ? "Checked in today" : "No check-in yet"}
                   icon={hasCheckedInToday ? "checkmark-circle-outline" : "time-outline"}
@@ -318,6 +320,44 @@ export default function HomeScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {riskAssessment && (
+          <Card style={{ marginBottom: 16 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.colors.muted, fontWeight: "800" }}>Risk insight</Text>
+                <Text style={{ color: theme.colors.text, fontSize: 22, fontWeight: "900", marginTop: 6 }}>
+                  {riskAssessment.riskScore}/100 pressure score
+                </Text>
+                <Text style={{ color: theme.colors.muted, marginTop: 6, lineHeight: 20 }}>
+                  {riskAssessment.suggestedAction}
+                </Text>
+              </View>
+
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 999,
+                  backgroundColor: `${riskColor}16`,
+                  borderWidth: 1,
+                  borderColor: `${riskColor}28`,
+                }}
+              >
+                <Text style={{ color: riskColor, fontWeight: "900" }}>{riskAssessment.riskLevel}</Text>
+              </View>
+            </View>
+
+            <View style={{ marginTop: 14, gap: 8 }}>
+              {riskAssessment.reasons.slice(0, 3).map((reason) => (
+                <View key={reason} style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+                  <Ionicons name="ellipse" size={7} color={riskColor} style={{ marginTop: 7 }} />
+                  <Text style={{ color: theme.colors.text, flex: 1, lineHeight: 20 }}>{reason}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        )}
 
         <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
           <InsightChip

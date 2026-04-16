@@ -7,6 +7,14 @@ import { todayISO } from "../utils/date";
 
 export type RiskLevel = "Low" | "Medium" | "High";
 
+export type RiskAssessment = {
+  riskScore: number;
+  riskLevel: RiskLevel;
+  reasons: string[];
+  suggestedAction: string;
+  source?: "aws-lambda" | "local";
+};
+
 export type JournalEntry = {
   id: string;
   title: string;
@@ -67,6 +75,7 @@ type State = {
   isAnonymous: boolean;
   streakDays: number;
   riskLevel: RiskLevel;
+  riskAssessment: RiskAssessment | null;
   journal: JournalEntry[];
   checkIns: CheckIn[];
   toolUses: ToolUse[];
@@ -90,6 +99,7 @@ type Actions = {
   addCheckIn: (c: Omit<CheckIn, "id">) => Promise<void>;
   addToolUse: (name: string, notes?: string) => Promise<void>;
   addUrgeLog: (entry: Omit<UrgeLog, "id" | "occurredAt"> & { occurredAt?: string }) => Promise<void>;
+  loadRiskAssessment: () => Promise<void>;
   setProfile: (patch: Partial<Profile>) => void;
   resetDemo: () => Promise<void>;
 };
@@ -129,6 +139,8 @@ type ApiUrgeLog = {
   toolUsed: string | null;
   occurredAt: string;
 };
+
+type ApiRiskAssessment = RiskAssessment;
 
 const AppCtx = createContext<Store | null>(null);
 
@@ -230,11 +242,13 @@ function toYYYYMMDD(iso: string) {
 }
 
 function applyRecoveryState<T extends State>(state: T, patch: Pick<State, "checkIns" | "toolUses" | "urgeLogs">): T {
+  const localRiskLevel = computeRisk(patch.checkIns);
+
   return {
     ...state,
     ...patch,
     streakDays: computeStreak(patch.checkIns),
-    riskLevel: computeRisk(patch.checkIns),
+    riskLevel: state.riskAssessment?.riskLevel ?? localRiskLevel,
   };
 }
 
@@ -335,11 +349,12 @@ function createAnonymousUrgeLog(entry: Omit<UrgeLog, "id" | "occurredAt"> & { oc
 }
 
 async function loadRemoteData() {
-  const [journal, checkIns, toolUses, urgeLogs] = await Promise.all([
+  const [journal, checkIns, toolUses, urgeLogs, riskAssessment] = await Promise.all([
     api<ApiJournal[]>("/journal", { auth: true }),
     api<ApiCheckIn[]>("/check-ins", { auth: true }),
     api<ApiToolUse[]>("/tool-uses", { auth: true }),
     api<ApiUrgeLog[]>("/urge-logs", { auth: true }),
+    loadCloudRiskAssessment().catch(() => null),
   ]);
 
   return {
@@ -347,7 +362,12 @@ async function loadRemoteData() {
     checkIns: checkIns.map(mapApiCheckIn),
     toolUses: toolUses.map(mapApiToolUse),
     urgeLogs: urgeLogs.map(mapApiUrgeLog),
+    riskAssessment,
   };
+}
+
+async function loadCloudRiskAssessment() {
+  return api<ApiRiskAssessment>("/risk-assessment", { auth: true });
 }
 
 async function loadSessionUser() {
@@ -366,6 +386,7 @@ const initialState: State = {
   isAnonymous: false,
   streakDays: 0,
   riskLevel: "Low",
+  riskAssessment: null,
   journal: [],
   checkIns: [],
   toolUses: [],
@@ -423,6 +444,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   onboardingDone: true,
                   isAnonymous: true,
                   journal,
+                  riskAssessment: null,
                   profile: nextProfile,
                 },
                 { checkIns, toolUses, urgeLogs }
@@ -445,6 +467,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               urgeLogs: [],
               streakDays: 0,
               riskLevel: "Low",
+              riskAssessment: null,
               profile: savedProfile,
             }));
             return;
@@ -480,6 +503,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 onboardingDone: true,
                 isAnonymous: false,
                 journal: data.journal,
+                riskAssessment: data.riskAssessment,
+                riskLevel: data.riskAssessment?.riskLevel ?? prev.riskLevel,
                 profile: nextProfile,
               },
               {
@@ -501,6 +526,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: [],
             streakDays: 0,
             riskLevel: "Low",
+            riskAssessment: null,
             profile: initialState.profile,
           }));
         }
@@ -572,6 +598,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: [],
             streakDays: 0,
             riskLevel: "Low",
+            riskAssessment: null,
             profile: nextProfile,
           };
         });
@@ -611,6 +638,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: [],
             streakDays: 0,
             riskLevel: "Low",
+            riskAssessment: null,
             profile: nextProfile,
           };
         });
@@ -640,6 +668,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: [],
             streakDays: 0,
             riskLevel: "Low",
+            riskAssessment: null,
             profile: nextProfile,
           };
         });
@@ -671,6 +700,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           urgeLogs: [],
           streakDays: 0,
           riskLevel: "Low",
+          riskAssessment: null,
         }));
       },
 
@@ -788,6 +818,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: prev.urgeLogs,
           });
         });
+
+        const riskAssessment = await loadCloudRiskAssessment().catch(() => null);
+        if (riskAssessment) {
+          setState((prev) => ({
+            ...prev,
+            riskAssessment,
+            riskLevel: riskAssessment.riskLevel,
+          }));
+        }
       },
 
       addToolUse: async (name, notes) => {
@@ -819,6 +858,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: prev.urgeLogs,
           });
         });
+
+        const riskAssessment = await loadCloudRiskAssessment().catch(() => null);
+        if (riskAssessment) {
+          setState((prev) => ({
+            ...prev,
+            riskAssessment,
+            riskLevel: riskAssessment.riskLevel,
+          }));
+        }
       },
 
       addUrgeLog: async (entry) => {
@@ -850,6 +898,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             urgeLogs: nextUrges,
           });
         });
+
+        const riskAssessment = await loadCloudRiskAssessment().catch(() => null);
+        if (riskAssessment) {
+          setState((prev) => ({
+            ...prev,
+            riskAssessment,
+            riskLevel: riskAssessment.riskLevel,
+          }));
+        }
+      },
+
+      loadRiskAssessment: async () => {
+        if (state.isAnonymous) {
+          return;
+        }
+
+        const riskAssessment = await loadCloudRiskAssessment();
+        setState((prev) => ({
+          ...prev,
+          riskAssessment,
+          riskLevel: riskAssessment.riskLevel,
+        }));
       },
 
       setProfile: (patch) => {
@@ -876,6 +946,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               checkIns: [],
               toolUses: [],
               urgeLogs: [],
+              riskAssessment: null,
             },
             { checkIns: [], toolUses: [], urgeLogs: [] }
           )
