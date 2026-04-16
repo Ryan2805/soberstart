@@ -57,6 +57,10 @@ export type UrgeLog = {
 
 export type Profile = {
   name: string;
+  realName: string;
+  displayName: string;
+  profileImageUri: string;
+  useDisplayName: boolean;
   email: string;
   reminders: boolean;
   darkMode: boolean;
@@ -393,6 +397,10 @@ const initialState: State = {
   urgeLogs: [],
   profile: {
     name: "",
+    realName: "",
+    displayName: "",
+    profileImageUri: "",
+    useDisplayName: true,
     email: "",
     reminders: true,
     darkMode: false,
@@ -624,23 +632,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
         await clearAnonymousStorage();
 
+        const remoteData = await loadRemoteData().catch(() => ({
+          journal: [] as JournalEntry[],
+          checkIns: [] as CheckIn[],
+          toolUses: [] as ToolUse[],
+          urgeLogs: [] as UrgeLog[],
+          riskAssessment: null as RiskAssessment | null,
+        }));
+
         setState((prev) => {
           const nextProfile = { ...prev.profile, email: authUser.email || prev.profile.email };
           void persistProfile(nextProfile);
-          return {
-            ...prev,
-            authUser,
-            onboardingDone: true,
-            isAnonymous: false,
-            journal: [],
-            checkIns: [],
-            toolUses: [],
-            urgeLogs: [],
-            streakDays: 0,
-            riskLevel: "Low",
-            riskAssessment: null,
-            profile: nextProfile,
-          };
+          return applyRecoveryState(
+            {
+              ...prev,
+              authUser,
+              onboardingDone: true,
+              isAnonymous: false,
+              journal: remoteData.journal,
+              riskAssessment: remoteData.riskAssessment,
+              riskLevel: remoteData.riskAssessment?.riskLevel ?? "Low",
+              profile: nextProfile,
+            },
+            {
+              checkIns: remoteData.checkIns,
+              toolUses: remoteData.toolUses,
+              urgeLogs: remoteData.urgeLogs,
+            }
+          );
         });
       },
 

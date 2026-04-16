@@ -87,6 +87,9 @@ export default function OnboardingScreen() {
     const cleanProfile = {
       ...state.profile,
       name: name.trim(),
+      realName: name.trim(),
+      displayName: name.trim(),
+      useDisplayName: true,
       email: email.trim(),
       soberStartDate: startDate,
       soberFrom,
