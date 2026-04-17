@@ -92,6 +92,7 @@ export default function OnboardingScreen() {
       useDisplayName: true,
       email: email.trim(),
       soberStartDate: startDate,
+      soberStartAt: `${startDate}T00:00:00.000Z`,
       soberFrom,
       goals,
       motivation: motivation.trim(),

@@ -100,27 +100,27 @@ export default function TabLayout() {
         // Header 
         headerShown: true,
         headerTitleStyle: {
-          color: theme.colors.text,
+          color: theme.colors.white,
           fontWeight: "800",
         },
         headerStyle: {
-          backgroundColor: theme.colors.bg,
+          backgroundColor: theme.colors.primaryDeep,
         },
         headerShadowVisible: false,
         headerRight: () => <ProfileButton />,
         headerTitleAlign: "left",
-        headerTintColor: theme.colors.text,
+        headerTintColor: theme.colors.white,
 
         // Bottom tab bar
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.muted2,
+        tabBarActiveTintColor: theme.colors.white,
+        tabBarInactiveTintColor: "rgba(255,255,255,0.62)",
         tabBarStyle: {
           position: "absolute",
           left: 16,
           right: 16,
           bottom: 16,
           borderTopColor: "transparent",
-          backgroundColor: "rgba(255,255,255,0.96)",
+          backgroundColor: theme.colors.primaryDeep,
           height: 74,
           paddingTop: 10,
           paddingBottom: 12,

@@ -1,9 +1,10 @@
 import { theme } from "@/theme";
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Text, View, type DimensionValue } from "react-native";
 
 type SobrietyTimerProps = {
   startDate: string;
+  startAt?: string;
 };
 
 type TimerParts = {
@@ -18,15 +19,21 @@ const HOUR_MS = 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
 const SECOND_MS = 1000;
 
-function parseStartDate(value: string) {
+function parseStartValue(startDate: string, startAt?: string) {
+  if (startAt) {
+    const exact = new Date(startAt);
+    if (!Number.isNaN(exact.getTime())) return exact;
+  }
+
+  const value = startDate;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const [year, month, day] = value.split("-").map(Number);
   const parsed = new Date(year, month - 1, day, 0, 0, 0, 0);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function getTimerParts(startDate: string): TimerParts | null {
-  const parsed = parseStartDate(startDate);
+function getTimerParts(startDate: string, startAt?: string): TimerParts | null {
+  const parsed = parseStartValue(startDate, startAt);
   if (!parsed) return null;
 
   const elapsed = Math.max(Date.now() - parsed.getTime(), 0);
@@ -38,6 +45,10 @@ function getTimerParts(startDate: string): TimerParts | null {
   return { totalDays, hours, minutes, seconds };
 }
 
+function percent(value: number): DimensionValue {
+  return `${value}%` as DimensionValue;
+}
+
 function TimerBar({
   label,
   value,
@@ -45,18 +56,18 @@ function TimerBar({
 }: {
   label: string;
   value: string;
-  accentWidth: string;
+  accentWidth: DimensionValue;
 }) {
   return (
     <View
       style={{
         flex: 1,
-        minWidth: 132,
+        minWidth: 0,
         backgroundColor: "rgba(255,255,255,0.12)",
-        borderRadius: 18,
-        paddingHorizontal: 14,
-        paddingTop: 14,
-        paddingBottom: 12,
+        borderRadius: 14,
+        paddingHorizontal: 10,
+        paddingTop: 10,
+        paddingBottom: 9,
         borderWidth: 1,
         borderColor: "rgba(255,255,255,0.16)",
         overflow: "hidden",
@@ -65,11 +76,11 @@ function TimerBar({
       <Text style={{ color: "rgba(255,255,255,0.78)", fontSize: 12, fontWeight: "800", textTransform: "uppercase" }}>
         {label}
       </Text>
-      <Text style={{ color: "white", fontSize: 26, fontWeight: "900", marginTop: 6 }}>{value}</Text>
+      <Text style={{ color: "white", fontSize: 22, fontWeight: "900", marginTop: 4 }}>{value}</Text>
       <View
         style={{
-          marginTop: 12,
-          height: 7,
+          marginTop: 8,
+          height: 5,
           borderRadius: 999,
           backgroundColor: "rgba(255,255,255,0.14)",
           overflow: "hidden",
@@ -88,18 +99,18 @@ function TimerBar({
   );
 }
 
-export function SobrietyTimer({ startDate }: SobrietyTimerProps) {
-  const [parts, setParts] = useState<TimerParts | null>(() => getTimerParts(startDate));
+export function SobrietyTimer({ startDate, startAt }: SobrietyTimerProps) {
+  const [parts, setParts] = useState<TimerParts | null>(() => getTimerParts(startDate, startAt));
 
   useEffect(() => {
-    setParts(getTimerParts(startDate));
+    setParts(getTimerParts(startDate, startAt));
 
     const interval = setInterval(() => {
-      setParts(getTimerParts(startDate));
+      setParts(getTimerParts(startDate, startAt));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [startDate]);
+  }, [startDate, startAt]);
 
   if (!parts) {
     return (
@@ -109,18 +120,18 @@ export function SobrietyTimer({ startDate }: SobrietyTimerProps) {
     );
   }
 
-  const dayProgress = `${Math.max(12, ((parts.totalDays % 30) / 30) * 100)}%`;
-  const hourProgress = `${(parts.hours / 24) * 100}%`;
-  const minuteProgress = `${(parts.minutes / 60) * 100}%`;
-  const secondProgress = `${(parts.seconds / 60) * 100}%`;
+  const dayProgress = percent(Math.max(12, ((parts.totalDays % 30) / 30) * 100));
+  const hourProgress = percent((parts.hours / 24) * 100);
+  const minuteProgress = percent((parts.minutes / 60) * 100);
+  const secondProgress = percent((parts.seconds / 60) * 100);
 
   return (
-    <View style={{ marginTop: 14, gap: 10 }}>
-      <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+    <View style={{ marginTop: 12, gap: 8 }}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
         <TimerBar label="Days" value={`${parts.totalDays}`} accentWidth={dayProgress} />
         <TimerBar label="Hours" value={`${parts.hours}`.padStart(2, "0")} accentWidth={hourProgress} />
       </View>
-      <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
         <TimerBar label="Minutes" value={`${parts.minutes}`.padStart(2, "0")} accentWidth={minuteProgress} />
         <TimerBar label="Seconds" value={`${parts.seconds}`.padStart(2, "0")} accentWidth={secondProgress} />
       </View>
