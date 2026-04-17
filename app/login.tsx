@@ -27,7 +27,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState(
     initialEmail || (state.profile.email === "anonymous@local" ? "" : state.profile.email)
   );
-  const [password, setPassword] = useState("Password123");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

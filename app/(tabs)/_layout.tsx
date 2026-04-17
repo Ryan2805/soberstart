@@ -3,8 +3,8 @@ import { useApp } from "@/store/store";
 import { theme } from "@/theme";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, Tabs, router } from "expo-router";
-import { useMemo } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { createElement, useEffect, useMemo, useState } from "react";
+import { Image, Platform, Pressable, Text, View } from "react-native";
 
 function getInitials(nameOrEmail?: string) {
   if (!nameOrEmail) return "U";
@@ -21,19 +21,19 @@ function getInitials(nameOrEmail?: string) {
 
 function ProfileButton() {
   const { state } = useApp();
+  const [imageFailed, setImageFailed] = useState(false);
+  const profile = state.profile;
 
-
-  const photoUrl =
-    (state.authUser as any)?.photoURL ||
-    (state.authUser as any)?.photoUrl ||
-    (state.authUser as any)?.avatarUrl ||
-    "";
-
+  const photoUrl = profile.profileImageUri.trim();
   const displayName =
-    (state.authUser as any)?.displayName ||
-    (state.authUser as any)?.name ||
-    (state.authUser as any)?.email ||
+    (profile.useDisplayName ? profile.displayName : profile.realName) ||
+    profile.name ||
+    state.authUser?.email ||
     "";
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [photoUrl]);
 
   const initials = useMemo(() => getInitials(displayName), [displayName]);
 
@@ -56,11 +56,24 @@ function ProfileButton() {
           overflow: "hidden",
         }}
       >
-        {photoUrl ? (
+        {photoUrl && !imageFailed && Platform.OS === "web" ? (
+          createElement("img", {
+            src: photoUrl,
+            alt: "Profile",
+            onError: () => setImageFailed(true),
+            style: {
+              width: 34,
+              height: 34,
+              objectFit: "cover",
+              display: "block",
+            },
+          })
+        ) : photoUrl && !imageFailed ? (
           <Image
             source={{ uri: photoUrl }}
             style={{ width: 34, height: 34 }}
             resizeMode="cover"
+            onError={() => setImageFailed(true)}
           />
         ) : (
           <Text style={{ color: "white", fontWeight: "800", fontSize: 12 }}>

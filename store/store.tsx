@@ -57,6 +57,10 @@ export type UrgeLog = {
 
 export type Profile = {
   name: string;
+  realName: string;
+  displayName: string;
+  profileImageUri: string;
+  useDisplayName: boolean;
   email: string;
   reminders: boolean;
   darkMode: boolean;
@@ -154,8 +158,42 @@ const STORAGE_KEYS = {
   profile: "soberstart:profile",
 };
 
+const PROFILE_METADATA_KEY = "soberstart_profile";
+
 function persistProfile(profile: Profile) {
   return AsyncStorage.setItem(STORAGE_KEYS.profile, JSON.stringify(profile));
+}
+
+function getRemoteProfile(user: User | null): Partial<Profile> {
+  const metadata = user?.user_metadata?.[PROFILE_METADATA_KEY];
+  return metadata && typeof metadata === "object" ? (metadata as Partial<Profile>) : {};
+}
+
+function getSyncableProfile(profile: Profile) {
+  return {
+    name: profile.name,
+    realName: profile.realName,
+    displayName: profile.displayName,
+    profileImageUri: profile.profileImageUri,
+    useDisplayName: profile.useDisplayName,
+    email: profile.email,
+    reminders: profile.reminders,
+    darkMode: profile.darkMode,
+    soberStartDate: profile.soberStartDate,
+    soberFrom: profile.soberFrom,
+    goals: profile.goals,
+    motivation: profile.motivation,
+  };
+}
+
+function syncRemoteProfile(profile: Profile, authUser: AuthUser, isAnonymous: boolean) {
+  if (!authUser || isAnonymous) return;
+
+  void supabase.auth.updateUser({
+    data: {
+      [PROFILE_METADATA_KEY]: getSyncableProfile(profile),
+    },
+  });
 }
 
 function mapAuthUser(user: User): NonNullable<AuthUser> {
@@ -393,6 +431,10 @@ const initialState: State = {
   urgeLogs: [],
   profile: {
     name: "",
+    realName: "",
+    displayName: "",
+    profileImageUri: "",
+    useDisplayName: true,
     email: "",
     reminders: true,
     darkMode: false,
@@ -473,6 +515,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
+          const remoteProfile = getRemoteProfile(user);
+          const mergedProfile = { ...savedProfile, ...remoteProfile } as Profile;
+
           let data = {
             journal: [] as JournalEntry[],
             checkIns: [] as CheckIn[],
@@ -487,7 +532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
 
           const authUser = mapAuthUser(user);
-          const nextProfile = { ...savedProfile, email: authUser.email || savedProfile.email };
+          const nextProfile = { ...mergedProfile, email: authUser.email || mergedProfile.email };
 
           if (!onboardingDone) {
             await AsyncStorage.setItem(STORAGE_KEYS.onboarding, "1");
@@ -571,7 +616,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         if (!data.session) {
           setState((prev) => {
-            const nextProfile = { ...prev.profile, email: authUser.email || prev.profile.email };
+            const remoteProfile = getRemoteProfile(data.user);
+            const nextProfile = { ...prev.profile, ...remoteProfile, email: authUser.email || prev.profile.email };
             void persistProfile(nextProfile);
             return {
               ...prev,
@@ -585,7 +631,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
 
         setState((prev) => {
-          const nextProfile = { ...prev.profile, email: authUser.email || prev.profile.email };
+          const remoteProfile = getRemoteProfile(data.user);
+          const nextProfile = { ...prev.profile, ...remoteProfile, email: authUser.email || prev.profile.email };
           void persistProfile(nextProfile);
           return {
             ...prev,
@@ -624,23 +671,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ]);
         await clearAnonymousStorage();
 
+        const remoteData = await loadRemoteData().catch(() => ({
+          journal: [] as JournalEntry[],
+          checkIns: [] as CheckIn[],
+          toolUses: [] as ToolUse[],
+          urgeLogs: [] as UrgeLog[],
+          riskAssessment: null as RiskAssessment | null,
+        }));
+
         setState((prev) => {
-          const nextProfile = { ...prev.profile, email: authUser.email || prev.profile.email };
+          const remoteProfile = getRemoteProfile(data.user);
+          const nextProfile = { ...prev.profile, ...remoteProfile, email: authUser.email || prev.profile.email };
           void persistProfile(nextProfile);
-          return {
-            ...prev,
-            authUser,
-            onboardingDone: true,
-            isAnonymous: false,
-            journal: [],
-            checkIns: [],
-            toolUses: [],
-            urgeLogs: [],
-            streakDays: 0,
-            riskLevel: "Low",
-            riskAssessment: null,
-            profile: nextProfile,
-          };
+          return applyRecoveryState(
+            {
+              ...prev,
+              authUser,
+              onboardingDone: true,
+              isAnonymous: false,
+              journal: remoteData.journal,
+              riskAssessment: remoteData.riskAssessment,
+              riskLevel: remoteData.riskAssessment?.riskLevel ?? "Low",
+              profile: nextProfile,
+            },
+            {
+              checkIns: remoteData.checkIns,
+              toolUses: remoteData.toolUses,
+              urgeLogs: remoteData.urgeLogs,
+            }
+          );
         });
       },
 
@@ -926,6 +985,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setState((prev) => {
           const nextProfile = { ...prev.profile, ...patch };
           void persistProfile(nextProfile);
+          syncRemoteProfile(nextProfile, prev.authUser, prev.isAnonymous);
           return { ...prev, profile: nextProfile };
         });
       },
