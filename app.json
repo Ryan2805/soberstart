@@ -41,7 +41,13 @@
       ],
       "expo-secure-store",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SoberStart to choose a profile picture from your photo library."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

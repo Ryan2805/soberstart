@@ -1,15 +1,17 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import type React from "react";
-import { useMemo, useState } from "react";
-import { Alert, Pressable, Switch, Text, TextInput, View } from "react-native";
+import { createElement, useEffect, useMemo, useState } from "react";
+import { Alert, Image, Platform, Pressable, Switch, Text, TextInput, View } from "react-native";
 import { Card } from "@/components/Card";
 import { Pill } from "@/components/Pill";
 import { Screen } from "@/components/Screen";
+import { supabase } from "@/lib/supabase";
 import { useApp } from "@/store/store";
 import { theme } from "@/theme";
+
+const AVATAR_BUCKET = "profile-pictures";
 
 export default function AccountScreen() {
   const { state, actions } = useApp();
@@ -59,8 +61,43 @@ export default function AccountScreen() {
       quality: 0.8,
     });
 
-    if (!result.canceled && result.assets[0]?.uri) {
-      setProfileImageUri(result.assets[0].uri);
+    const asset = result.assets[0];
+    if (result.canceled || !asset?.uri) {
+      return;
+    }
+
+    setProfileImageUri(asset.uri);
+
+    if (!state.authUser || state.isAnonymous) {
+      actions.setProfile({ profileImageUri: asset.uri });
+      return;
+    }
+
+    try {
+      const response = await fetch(asset.uri);
+      const imageBody = await response.blob();
+      const extension = getImageExtension(asset.fileName, asset.mimeType);
+      const path = `${state.authUser.id}/avatar-${Date.now()}.${extension}`;
+      const { error } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, imageBody, {
+          contentType: asset.mimeType ?? `image/${extension}`,
+          upsert: true,
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+      setProfileImageUri(data.publicUrl);
+      actions.setProfile({ profileImageUri: data.publicUrl });
+    } catch {
+      actions.setProfile({ profileImageUri: asset.uri });
+      Alert.alert(
+        "Photo saved on this device",
+        "The image was selected locally, but cloud upload did not complete. Create a Supabase Storage bucket named profile-pictures to sync photos across devices.",
+      );
     }
   };
 
@@ -185,7 +222,13 @@ export default function AccountScreen() {
                   <Text style={{ color: theme.colors.primary, fontWeight: "900" }}>Choose photo</Text>
                 </Pressable>
                 {!!profileImageUri && (
-                  <Pressable onPress={() => setProfileImageUri("")} style={clearButton}>
+                  <Pressable
+                    onPress={() => {
+                      setProfileImageUri("");
+                      actions.setProfile({ profileImageUri: "" });
+                    }}
+                    style={clearButton}
+                  >
                     <Ionicons name="trash-outline" size={16} color={theme.colors.danger} />
                     <Text style={{ color: theme.colors.danger, fontWeight: "900" }}>Remove photo</Text>
                   </Pressable>
@@ -216,7 +259,16 @@ export default function AccountScreen() {
           <View style={{ marginTop: 14, gap: 10 }}>
             <ReadOnlyRow label="Real name" value={profile.realName || "Not set"} />
             <ReadOnlyRow label="Display name" value={profile.displayName || profile.name || "Not set"} />
-            <ReadOnlyRow label="Profile picture" value={profile.profileImageUri ? "Custom image URL saved" : "Initials avatar"} />
+            <ReadOnlyRow
+              label="Profile picture"
+              value={
+                profile.profileImageUri
+                  ? profile.profileImageUri.startsWith("http")
+                    ? "Cloud image saved"
+                    : "Local image saved"
+                  : "Initials avatar"
+              }
+            />
           </View>
         )}
       </Card>
@@ -321,6 +373,13 @@ export default function AccountScreen() {
 }
 
 function Avatar({ uri, initials }: { uri: string; initials: string }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUri = uri.trim();
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [imageUri]);
+
   return (
     <View
       style={{
@@ -335,8 +394,25 @@ function Avatar({ uri, initials }: { uri: string; initials: string }) {
         overflow: "hidden",
       }}
     >
-      {uri ? (
-        <Image source={{ uri }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+      {imageUri && !imageFailed && Platform.OS === "web" ? (
+        createElement("img", {
+          src: imageUri,
+          alt: "Profile",
+          onError: () => setImageFailed(true),
+          style: {
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            display: "block",
+          },
+        })
+      ) : imageUri && !imageFailed ? (
+        <Image
+          source={{ uri: imageUri }}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="cover"
+          onError={() => setImageFailed(true)}
+        />
       ) : (
         <Text style={{ color: theme.colors.primary, fontWeight: "900", fontSize: 24 }}>{initials}</Text>
       )}
@@ -471,6 +547,20 @@ function getInitials(name: string) {
       .map((part) => part[0]?.toUpperCase())
       .join("") || "SS"
   );
+}
+
+function getImageExtension(fileName?: string | null, mimeType?: string | null) {
+  const fromName = fileName?.split(".").pop()?.toLowerCase();
+  if (fromName && ["jpg", "jpeg", "png", "webp", "heic"].includes(fromName)) {
+    return fromName === "jpeg" ? "jpg" : fromName;
+  }
+
+  const fromMime = mimeType?.split("/").pop()?.toLowerCase();
+  if (fromMime && ["jpg", "jpeg", "png", "webp", "heic"].includes(fromMime)) {
+    return fromMime === "jpeg" ? "jpg" : fromMime;
+  }
+
+  return "jpg";
 }
 
 const primaryButton = {
