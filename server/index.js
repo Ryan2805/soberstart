@@ -160,6 +160,13 @@ const commentSchema = z.object({
   body: z.string().trim().min(1).max(500),
 });
 
+const profileUpdateSchema = z.object({
+  displayName: z.string().trim().max(120).optional().or(z.literal("")),
+  profileImageUrl: z.string().trim().url().max(1000).optional().or(z.literal("")),
+  profileImageBucket: z.string().trim().max(120).optional().or(z.literal("")),
+  profileImagePath: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
 function startOfDayUtc(dateString) {
   return new Date(`${dateString}T00:00:00.000Z`);
 }
@@ -294,6 +301,40 @@ async function calculateCloudRisk(payload) {
 app.get("/health", (_, res) => res.json({ ok: true }));
 app.get("/me", authMiddleware, (req, res) => {
   res.json({ user: req.user });
+});
+
+app.put("/me/profile", authMiddleware, async (req, res) => {
+  const parsed = profileUpdateSchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.flatten() });
+
+  const updated = await prisma.user.update({
+    where: { id: req.user.id },
+    data: {
+      ...("displayName" in parsed.data
+        ? { displayName: parsed.data.displayName || null }
+        : {}),
+      ...("profileImageUrl" in parsed.data
+        ? { profileImageUrl: parsed.data.profileImageUrl || null }
+        : {}),
+      ...("profileImageBucket" in parsed.data
+        ? { profileImageBucket: parsed.data.profileImageBucket || null }
+        : {}),
+      ...("profileImagePath" in parsed.data
+        ? { profileImagePath: parsed.data.profileImagePath || null }
+        : {}),
+    },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      profileImageUrl: true,
+      profileImageBucket: true,
+      profileImagePath: true,
+    },
+  });
+
+  res.json({ user: updated });
 });
 app.all("/auth/register", (_, res) => {
   res
