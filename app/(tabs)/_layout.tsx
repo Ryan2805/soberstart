@@ -182,16 +182,23 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="account"
+        name="community"
         options={{
-          title: "Account",
+          title: "Community",
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons
-              name={focused ? "person" : "person-outline"}
+              name={focused ? "people" : "people-outline"}
               color={color}
               size={focused ? 24 : size ?? 22}
             />
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="account"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

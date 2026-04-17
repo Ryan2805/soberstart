@@ -1,3 +1,4 @@
+import { api } from "@/api/Client";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
@@ -43,6 +44,20 @@ export default function AccountScreen() {
       useDisplayName,
       name: nextName,
     });
+
+    if (state.authUser && !state.isAnonymous) {
+      void api("/me/profile", {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({
+          displayName: cleanDisplayName || nextName,
+          profileImageUrl: profileImageUri.trim(),
+          profileImageBucket: profile.profileImageBucket,
+          profileImagePath: profile.profileImagePath,
+        }),
+      }).catch(() => undefined);
+    }
+
     setEditing(false);
   };
 
@@ -91,12 +106,25 @@ export default function AccountScreen() {
 
       const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
       setProfileImageUri(data.publicUrl);
-      actions.setProfile({ profileImageUri: data.publicUrl });
+      actions.setProfile({
+        profileImageUri: data.publicUrl,
+        profileImageBucket: AVATAR_BUCKET,
+        profileImagePath: path,
+      });
+      await api("/me/profile", {
+        method: "PUT",
+        auth: true,
+        body: JSON.stringify({
+          displayName: profile.displayName || profile.name,
+          profileImageUrl: data.publicUrl,
+          profileImageBucket: AVATAR_BUCKET,
+          profileImagePath: path,
+        }),
+      });
     } catch {
-      actions.setProfile({ profileImageUri: asset.uri });
       Alert.alert(
-        "Photo saved on this device",
-        "The image was selected locally, but cloud upload did not complete. Create a Supabase Storage bucket named profile-pictures to sync photos across devices.",
+        "Photo upload failed",
+        "The image could not upload to Supabase Storage. The profile-pictures bucket migration may need to be applied, then try again.",
       );
     }
   };
@@ -225,7 +253,18 @@ export default function AccountScreen() {
                   <Pressable
                     onPress={() => {
                       setProfileImageUri("");
-                      actions.setProfile({ profileImageUri: "" });
+                      actions.setProfile({ profileImageUri: "", profileImageBucket: "", profileImagePath: "" });
+                      if (state.authUser && !state.isAnonymous) {
+                        void api("/me/profile", {
+                          method: "PUT",
+                          auth: true,
+                          body: JSON.stringify({
+                            profileImageUrl: "",
+                            profileImageBucket: "",
+                            profileImagePath: "",
+                          }),
+                        }).catch(() => undefined);
+                      }
                     }}
                     style={clearButton}
                   >

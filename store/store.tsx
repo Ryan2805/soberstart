@@ -60,6 +60,8 @@ export type Profile = {
   realName: string;
   displayName: string;
   profileImageUri: string;
+  profileImageBucket: string;
+  profileImagePath: string;
   useDisplayName: boolean;
   email: string;
   reminders: boolean;
@@ -179,6 +181,8 @@ function getSyncableProfile(profile: Profile) {
     realName: profile.realName,
     displayName: profile.displayName,
     profileImageUri: profile.profileImageUri,
+    profileImageBucket: profile.profileImageBucket,
+    profileImagePath: profile.profileImagePath,
     useDisplayName: profile.useDisplayName,
     email: profile.email,
     reminders: profile.reminders,
@@ -463,6 +467,8 @@ const initialState: State = {
     realName: "",
     displayName: "",
     profileImageUri: "",
+    profileImageBucket: "",
+    profileImagePath: "",
     useDisplayName: true,
     email: "",
     reminders: true,

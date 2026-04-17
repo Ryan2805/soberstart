@@ -148,12 +148,68 @@ const urgeLogSchema = z.object({
   occurredAt: z.string().datetime().optional(),
 });
 
+const communityPostSchema = z.object({
+  body: z.string().trim().min(1).max(1000),
+  imageUrl: z.string().trim().url().max(1000).optional().or(z.literal("")),
+  imageBucket: z.string().trim().max(120).optional().or(z.literal("")),
+  imagePath: z.string().trim().max(1000).optional().or(z.literal("")),
+  badgeId: z.string().trim().max(80).optional().or(z.literal("")),
+});
+
+const commentSchema = z.object({
+  body: z.string().trim().min(1).max(500),
+});
+
+const profileUpdateSchema = z.object({
+  displayName: z.string().trim().max(120).optional().or(z.literal("")),
+  profileImageUrl: z.string().trim().url().max(1000).optional().or(z.literal("")),
+  profileImageBucket: z.string().trim().max(120).optional().or(z.literal("")),
+  profileImagePath: z.string().trim().max(1000).optional().or(z.literal("")),
+});
+
 function startOfDayUtc(dateString) {
   return new Date(`${dateString}T00:00:00.000Z`);
 }
 
 function toDateOnly(date) {
   return date.toISOString().slice(0, 10);
+}
+
+function displayNameFromEmail(email) {
+  return email?.split("@")[0] || "Community member";
+}
+
+function formatCommunityPost(post, currentUserId) {
+  const likedByMe = post.likes?.some((like) => like.userId === currentUserId);
+
+  return {
+    id: post.id,
+    body: post.body,
+    imageUrl: post.imageUrl,
+    imageBucket: post.imageBucket,
+    imagePath: post.imagePath,
+    badgeId: post.badgeId,
+    createdAt: post.createdAt,
+    author: {
+      id: post.user.id,
+      displayName: displayNameFromEmail(post.user.email),
+    },
+    likeCount: post._count?.likes ?? post.likes?.length ?? 0,
+    commentCount: post._count?.comments ?? post.comments?.length ?? 0,
+    likedByMe: Boolean(likedByMe),
+  };
+}
+
+function formatComment(comment) {
+  return {
+    id: comment.id,
+    body: comment.body,
+    createdAt: comment.createdAt,
+    author: {
+      id: comment.user.id,
+      displayName: displayNameFromEmail(comment.user.email),
+    },
+  };
 }
 
 function localRiskAssessment(checkIns, urgeLogs, toolUses) {
@@ -245,6 +301,40 @@ async function calculateCloudRisk(payload) {
 app.get("/health", (_, res) => res.json({ ok: true }));
 app.get("/me", authMiddleware, (req, res) => {
   res.json({ user: req.user });
+});
+
+app.put("/me/profile", authMiddleware, async (req, res) => {
+  const parsed = profileUpdateSchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.flatten() });
+
+  const updated = await prisma.user.update({
+    where: { id: req.user.id },
+    data: {
+      ...("displayName" in parsed.data
+        ? { displayName: parsed.data.displayName || null }
+        : {}),
+      ...("profileImageUrl" in parsed.data
+        ? { profileImageUrl: parsed.data.profileImageUrl || null }
+        : {}),
+      ...("profileImageBucket" in parsed.data
+        ? { profileImageBucket: parsed.data.profileImageBucket || null }
+        : {}),
+      ...("profileImagePath" in parsed.data
+        ? { profileImagePath: parsed.data.profileImagePath || null }
+        : {}),
+    },
+    select: {
+      id: true,
+      email: true,
+      displayName: true,
+      profileImageUrl: true,
+      profileImageBucket: true,
+      profileImagePath: true,
+    },
+  });
+
+  res.json({ user: updated });
 });
 app.all("/auth/register", (_, res) => {
   res
@@ -421,6 +511,114 @@ app.get("/risk-assessment", authMiddleware, async (req, res) => {
     console.error("Risk assessment failed", error);
     res.status(502).json({ error: "Could not calculate risk assessment" });
   }
+});
+
+app.get("/community/posts", authMiddleware, async (req, res) => {
+  const posts = await prisma.communityPost.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      user: { select: { id: true, email: true } },
+      likes: { where: { userId: req.user.id }, select: { userId: true } },
+      _count: { select: { likes: true, comments: true } },
+    },
+  });
+
+  res.json(posts.map((post) => formatCommunityPost(post, req.user.id)));
+});
+
+app.post("/community/posts", authMiddleware, async (req, res) => {
+  const parsed = communityPostSchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.flatten() });
+
+  const created = await prisma.communityPost.create({
+    data: {
+      userId: req.user.id,
+      body: parsed.data.body,
+      imageUrl: parsed.data.imageUrl || null,
+      imageBucket: parsed.data.imageBucket || null,
+      imagePath: parsed.data.imagePath || null,
+      badgeId: parsed.data.badgeId || null,
+    },
+    include: {
+      user: { select: { id: true, email: true } },
+      likes: { where: { userId: req.user.id }, select: { userId: true } },
+      _count: { select: { likes: true, comments: true } },
+    },
+  });
+
+  res.status(201).json(formatCommunityPost(created, req.user.id));
+});
+
+app.post("/community/posts/:id/like", authMiddleware, async (req, res) => {
+  const postId = req.params.id;
+  const post = await prisma.communityPost.findUnique({ where: { id: postId } });
+  if (!post) return res.status(404).json({ error: "Not found" });
+
+  await prisma.postLike.upsert({
+    where: {
+      postId_userId: {
+        postId,
+        userId: req.user.id,
+      },
+    },
+    update: {},
+    create: {
+      postId,
+      userId: req.user.id,
+    },
+  });
+
+  res.status(204).send();
+});
+
+app.delete("/community/posts/:id/like", authMiddleware, async (req, res) => {
+  await prisma.postLike.deleteMany({
+    where: {
+      postId: req.params.id,
+      userId: req.user.id,
+    },
+  });
+
+  res.status(204).send();
+});
+
+app.get("/community/posts/:id/comments", authMiddleware, async (req, res) => {
+  const comments = await prisma.postComment.findMany({
+    where: { postId: req.params.id },
+    orderBy: { createdAt: "asc" },
+    take: 100,
+    include: {
+      user: { select: { id: true, email: true } },
+    },
+  });
+
+  res.json(comments.map(formatComment));
+});
+
+app.post("/community/posts/:id/comments", authMiddleware, async (req, res) => {
+  const parsed = commentSchema.safeParse(req.body);
+  if (!parsed.success)
+    return res.status(400).json({ error: parsed.error.flatten() });
+
+  const post = await prisma.communityPost.findUnique({
+    where: { id: req.params.id },
+  });
+  if (!post) return res.status(404).json({ error: "Not found" });
+
+  const created = await prisma.postComment.create({
+    data: {
+      postId: req.params.id,
+      userId: req.user.id,
+      body: parsed.data.body,
+    },
+    include: {
+      user: { select: { id: true, email: true } },
+    },
+  });
+
+  res.status(201).json(formatComment(created));
 });
 
 app.get("/tool-uses", authMiddleware, async (req, res) => {
