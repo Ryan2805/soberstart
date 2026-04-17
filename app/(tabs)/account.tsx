@@ -61,11 +61,11 @@ export default function AccountScreen() {
       quality: 0.8,
     });
 
-    const asset = result.assets[0];
-    if (result.canceled || !asset?.uri) {
+    if (result.canceled || !result.assets?.[0]?.uri) {
       return;
     }
 
+    const asset = result.assets[0];
     setProfileImageUri(asset.uri);
 
     if (!state.authUser || state.isAnonymous) {
@@ -340,7 +340,7 @@ export default function AccountScreen() {
           <SettingRow
             icon="notifications-outline"
             title="Daily reminders"
-            subtitle="Keep the reminder preference saved with your profile."
+            subtitle="Schedule a local 8:00 PM device reminder for your daily check-in."
             right={<Switch value={profile.reminders} onValueChange={(reminders) => actions.setProfile({ reminders })} />}
           />
           <Divider />

@@ -65,9 +65,11 @@ export type Profile = {
   reminders: boolean;
   darkMode: boolean;
   soberStartDate: string;
+  soberStartAt: string;
   soberFrom: string[];
   goals: string[];
   motivation: string;
+  profileUpdatedAt: string;
 };
 
 export type AuthUser = { id: string; email: string } | null;
@@ -105,6 +107,7 @@ type Actions = {
   addUrgeLog: (entry: Omit<UrgeLog, "id" | "occurredAt"> & { occurredAt?: string }) => Promise<void>;
   loadRiskAssessment: () => Promise<void>;
   setProfile: (patch: Partial<Profile>) => void;
+  resetSobrietyDate: (date: string, startAt?: string) => void;
   resetDemo: () => Promise<void>;
 };
 
@@ -145,6 +148,7 @@ type ApiUrgeLog = {
 };
 
 type ApiRiskAssessment = RiskAssessment;
+type RemoteData = Awaited<ReturnType<typeof loadRemoteData>>;
 
 const AppCtx = createContext<Store | null>(null);
 
@@ -180,9 +184,34 @@ function getSyncableProfile(profile: Profile) {
     reminders: profile.reminders,
     darkMode: profile.darkMode,
     soberStartDate: profile.soberStartDate,
+    soberStartAt: profile.soberStartAt,
     soberFrom: profile.soberFrom,
     goals: profile.goals,
     motivation: profile.motivation,
+    profileUpdatedAt: profile.profileUpdatedAt,
+  };
+}
+
+function getProfileTimestamp(profile: Partial<Profile>) {
+  const value = profile.profileUpdatedAt ? Date.parse(profile.profileUpdatedAt) : 0;
+  return Number.isNaN(value) ? 0 : value;
+}
+
+function mergeProfile(savedProfile: Profile, remoteProfile: Partial<Profile>) {
+  const savedTimestamp = getProfileTimestamp(savedProfile);
+  const remoteTimestamp = getProfileTimestamp(remoteProfile);
+
+  if (savedTimestamp > remoteTimestamp) {
+    return { ...initialState.profile, ...remoteProfile, ...savedProfile } as Profile;
+  }
+
+  return { ...initialState.profile, ...savedProfile, ...remoteProfile } as Profile;
+}
+
+function withProfileUpdatedAt(patch: Partial<Profile>) {
+  return {
+    ...patch,
+    profileUpdatedAt: new Date().toISOString(),
   };
 }
 
@@ -439,9 +468,11 @@ const initialState: State = {
     reminders: true,
     darkMode: false,
     soberStartDate: "",
+    soberStartAt: "",
     soberFrom: [],
     goals: [],
     motivation: "",
+    profileUpdatedAt: "",
   },
 };
 
@@ -516,13 +547,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
 
           const remoteProfile = getRemoteProfile(user);
-          const mergedProfile = { ...savedProfile, ...remoteProfile } as Profile;
+          const mergedProfile = mergeProfile(savedProfile, remoteProfile);
 
-          let data = {
+          let data: RemoteData = {
             journal: [] as JournalEntry[],
             checkIns: [] as CheckIn[],
             toolUses: [] as ToolUse[],
             urgeLogs: [] as UrgeLog[],
+            riskAssessment: null,
           };
 
           try {
@@ -617,7 +649,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!data.session) {
           setState((prev) => {
             const remoteProfile = getRemoteProfile(data.user);
-            const nextProfile = { ...prev.profile, ...remoteProfile, email: authUser.email || prev.profile.email };
+            const nextProfile = mergeProfile(prev.profile, remoteProfile);
+            nextProfile.email = authUser.email || nextProfile.email;
             void persistProfile(nextProfile);
             return {
               ...prev,
@@ -632,7 +665,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         setState((prev) => {
           const remoteProfile = getRemoteProfile(data.user);
-          const nextProfile = { ...prev.profile, ...remoteProfile, email: authUser.email || prev.profile.email };
+          const nextProfile = mergeProfile(prev.profile, remoteProfile);
+          nextProfile.email = authUser.email || nextProfile.email;
           void persistProfile(nextProfile);
           return {
             ...prev,
@@ -681,7 +715,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         setState((prev) => {
           const remoteProfile = getRemoteProfile(data.user);
-          const nextProfile = { ...prev.profile, ...remoteProfile, email: authUser.email || prev.profile.email };
+          const nextProfile = mergeProfile(prev.profile, remoteProfile);
+          nextProfile.email = authUser.email || nextProfile.email;
           void persistProfile(nextProfile);
           return applyRecoveryState(
             {
@@ -983,7 +1018,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setProfile: (patch) => {
         setState((prev) => {
-          const nextProfile = { ...prev.profile, ...patch };
+          const nextProfile = { ...prev.profile, ...withProfileUpdatedAt(patch) };
+          void persistProfile(nextProfile);
+          syncRemoteProfile(nextProfile, prev.authUser, prev.isAnonymous);
+          return { ...prev, profile: nextProfile };
+        });
+      },
+
+      resetSobrietyDate: (date, startAt) => {
+        setState((prev) => {
+          const nextProfile = {
+            ...prev.profile,
+            ...withProfileUpdatedAt({
+              soberStartDate: date,
+              soberStartAt: startAt ?? new Date().toISOString(),
+            }),
+          };
           void persistProfile(nextProfile);
           syncRemoteProfile(nextProfile, prev.authUser, prev.isAnonymous);
           return { ...prev, profile: nextProfile };

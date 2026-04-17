@@ -3,12 +3,14 @@ import { Pill } from "@/components/Pill";
 import { Screen } from "@/components/Screen";
 import { SobrietyTimer } from "@/components/SobrietyTimer";
 import { StatCard } from "@/components/StatCard";
+import { getEarnedBadges, getNextBadge, getSoberDays } from "@/lib/gamification";
 import { useApp } from "@/store/store";
 import { theme } from "@/theme";
 import { formatShortDate, todayISO } from "@/utils/date";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useState } from "react";
+import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 function QuickAction({
   title,
@@ -110,8 +112,46 @@ function InsightChip({
   );
 }
 
+function isValidIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function TimerActionButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        paddingHorizontal: 12,
+        paddingVertical: 9,
+        borderRadius: 14,
+        backgroundColor: "rgba(255,255,255,0.12)",
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.18)",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 7,
+      }}
+    >
+      <Ionicons name={icon} size={15} color="white" />
+      <Text style={{ color: "white", fontWeight: "900" }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 export default function HomeScreen() {
-  const { state } = useApp();
+  const { state, actions } = useApp();
+  const [dateEditorOpen, setDateEditorOpen] = useState(false);
+  const [newSoberDate, setNewSoberDate] = useState(state.profile.soberStartDate || todayISO());
 
   const lastCheckIn = state.checkIns[0];
   const hasCheckedInToday = lastCheckIn?.date === todayISO();
@@ -123,13 +163,36 @@ export default function HomeScreen() {
     state.profile.soberFrom.length > 0 ? state.profile.soberFrom.join(", ") : "your recovery goals";
   const riskAssessment = state.riskAssessment;
   const displayRiskLevel = riskAssessment?.riskLevel ?? state.riskLevel;
+  const soberDays = getSoberDays(state.profile.soberStartDate);
+  const badges = getEarnedBadges(state.profile.soberStartDate);
+  const nextBadge = getNextBadge(state.profile.soberStartDate);
+  const earnedBadgeCount = badges.filter((badge) => badge.unlocked).length;
 
   const riskColor =
     displayRiskLevel === "Low"
       ? theme.colors.success
       : displayRiskLevel === "Medium"
         ? theme.colors.warning
-        : theme.colors.danger;
+      : theme.colors.danger;
+
+  const resetSobrietyDate = () => {
+    const now = new Date();
+    actions.resetSobrietyDate(now.toISOString().slice(0, 10), now.toISOString());
+    setNewSoberDate(now.toISOString().slice(0, 10));
+    setDateEditorOpen(false);
+  };
+
+  const saveSobrietyDate = () => {
+    const cleanDate = newSoberDate.trim();
+
+    if (!isValidIsoDate(cleanDate)) {
+      Alert.alert("Check the date", "Use a valid date in YYYY-MM-DD format.");
+      return;
+    }
+
+    actions.resetSobrietyDate(cleanDate, `${cleanDate}T00:00:00.000Z`);
+    setDateEditorOpen(false);
+  };
 
   return (
     <Screen>
@@ -233,7 +296,9 @@ export default function HomeScreen() {
               <Text style={{ color: "rgba(255,255,255,0.8)", marginTop: 6, fontWeight: "700" }}>{headlineSubtext}</Text>
 
               {hasSoberDate ? (
-                <SobrietyTimer startDate={state.profile.soberStartDate} />
+                <Pressable onPress={resetSobrietyDate}>
+                  <SobrietyTimer startDate={state.profile.soberStartDate} startAt={state.profile.soberStartAt} />
+                </Pressable>
               ) : (
                 <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10, marginTop: 8 }}>
                   <Text
@@ -247,6 +312,73 @@ export default function HomeScreen() {
                     {state.streakDays}
                   </Text>
                   <Text style={{ color: "rgba(255,255,255,0.85)", fontWeight: "800", marginBottom: 10 }}>days</Text>
+                </View>
+              )}
+
+              {hasSoberDate && (
+                <View style={{ marginTop: 12, gap: 10 }}>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                    <TimerActionButton icon="refresh-outline" label="Reset sobriety" onPress={resetSobrietyDate} />
+                    <TimerActionButton
+                      icon="calendar-outline"
+                      label="Set date"
+                      onPress={() => {
+                        setNewSoberDate(state.profile.soberStartDate || todayISO());
+                        setDateEditorOpen((open) => !open);
+                      }}
+                    />
+                  </View>
+
+                  {dateEditorOpen && (
+                    <View
+                      style={{
+                        padding: 12,
+                        borderRadius: 16,
+                        backgroundColor: "rgba(255,255,255,0.10)",
+                        borderWidth: 1,
+                        borderColor: "rgba(255,255,255,0.16)",
+                        gap: 8,
+                      }}
+                    >
+                      <Text style={{ color: "rgba(255,255,255,0.82)", fontWeight: "800" }}>New sobriety date</Text>
+                      <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+                        <TextInput
+                          value={newSoberDate}
+                          onChangeText={setNewSoberDate}
+                          placeholder="YYYY-MM-DD"
+                          placeholderTextColor="rgba(255,255,255,0.54)"
+                          autoCapitalize="none"
+                          keyboardType="numbers-and-punctuation"
+                          style={{
+                            flex: 1,
+                            minWidth: 130,
+                            borderWidth: 1,
+                            borderColor: "rgba(255,255,255,0.18)",
+                            borderRadius: 12,
+                            paddingHorizontal: 10,
+                            paddingVertical: 9,
+                            color: "white",
+                            fontWeight: "800",
+                            backgroundColor: "rgba(255,255,255,0.08)",
+                          }}
+                        />
+                        <Pressable
+                          onPress={saveSobrietyDate}
+                          style={{
+                            paddingHorizontal: 12,
+                            paddingVertical: 10,
+                            borderRadius: 12,
+                            backgroundColor: theme.colors.accent,
+                          }}
+                        >
+                          <Text style={{ color: "white", fontWeight: "900" }}>Save</Text>
+                        </Pressable>
+                      </View>
+                      <Text style={{ color: "rgba(255,255,255,0.72)", lineHeight: 18 }}>
+                        Use this if you reset late after a relapse, or if you were already sober before installing.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
 
@@ -371,6 +503,78 @@ export default function HomeScreen() {
             icon="document-text-outline"
           />
         </View>
+
+        <Card style={{ marginBottom: 16 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.colors.muted, fontWeight: "800" }}>Milestone badges</Text>
+              <Text style={{ color: theme.colors.text, fontSize: 22, fontWeight: "900", marginTop: 6 }}>
+                {earnedBadgeCount} of {badges.length} unlocked
+              </Text>
+              <Text style={{ color: theme.colors.muted, marginTop: 6, lineHeight: 20 }}>
+                {hasSoberDate
+                  ? nextBadge
+                    ? `${nextBadge.daysRemaining} day${nextBadge.daysRemaining === 1 ? "" : "s"} until your ${nextBadge.label} badge.`
+                    : "Every listed milestone is unlocked. That is serious momentum."
+                  : "Add a sober start date to unlock recovery milestones."}
+              </Text>
+            </View>
+
+            <View
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 18,
+                backgroundColor: theme.colors.primarySoft,
+                borderWidth: 1,
+                borderColor: theme.colors.borderSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="trophy-outline" size={22} color={theme.colors.primary} />
+            </View>
+          </View>
+
+          {hasSoberDate && (
+            <Text style={{ color: theme.colors.text, fontWeight: "900", marginTop: 12 }}>
+              {soberDays} sober day{soberDays === 1 ? "" : "s"} counted from your start date.
+            </Text>
+          )}
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 14 }}>
+            {badges.map((badge) => (
+              <View
+                key={badge.id}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 9,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: badge.unlocked ? `${theme.colors.success}36` : theme.colors.borderSoft,
+                  backgroundColor: badge.unlocked ? `${theme.colors.success}12` : theme.colors.bgSoft,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 7,
+                }}
+              >
+                <Ionicons
+                  name={badge.unlocked ? "ribbon" : "lock-closed-outline"}
+                  size={15}
+                  color={badge.unlocked ? theme.colors.success : theme.colors.muted}
+                />
+                <Text
+                  style={{
+                    color: badge.unlocked ? theme.colors.success : theme.colors.muted,
+                    fontWeight: "900",
+                  }}
+                >
+                  {badge.label}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </Card>
 
         <View style={{ flexDirection: "row", gap: 12, marginBottom: 16 }}>
           <QuickAction
